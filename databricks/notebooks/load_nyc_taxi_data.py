@@ -12,6 +12,7 @@ schema = dbutils.widgets.get("schema")
 
 # COMMAND ----------
 
+import time
 import pandas as pd
 
 # COMMAND ----------
@@ -24,18 +25,38 @@ print(f"Dropped table (if existed): {table_name}")
 # COMMAND ----------
 
 base_url = "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2025-{month:02d}.parquet"
+max_attempts = 3
+backoff_seconds = [2, 5]  # wait before retry 2 and 3
+
+failed_months = []
+first_written = True
 
 for month in range(1, 13):
     url = base_url.format(month=month)
     print(f"Loading month {month:02d}: {url}")
-    try:
-        pdf = pd.read_parquet(url)
-        df = spark.createDataFrame(pdf)
-        write_mode = "overwrite" if month == 1 else "append"
-        df.write.format("delta").mode(write_mode).option("overwriteSchema", "true").saveAsTable(table_name)
-        print(f"  -> {len(pdf):,} rows written (mode={write_mode})")
-    except Exception as e:
-        print(f"  -> Skipped (error: {e})")
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            pdf = pd.read_parquet(url)
+            df = spark.createDataFrame(pdf)
+            write_mode = "overwrite" if first_written else "append"
+            df.write.format("delta").mode(write_mode).option("overwriteSchema", "true").saveAsTable(table_name)
+            print(f"  -> {len(pdf):,} rows written (mode={write_mode}, attempt={attempt})")
+            first_written = False
+            break
+        except Exception as e:
+            if attempt == max_attempts:
+                print(f"  -> Skipped after {max_attempts} attempts (error: {e})")
+                failed_months.append(month)
+            else:
+                wait = backoff_seconds[attempt - 1]
+                print(f"  -> Attempt {attempt} failed ({e}); retrying in {wait}s")
+                time.sleep(wait)
+
+if failed_months:
+    print(f"\nFailed months: {failed_months}. Re-run the notebook to retry them.")
+else:
+    print("\nAll months loaded successfully.")
 
 # COMMAND ----------
 
