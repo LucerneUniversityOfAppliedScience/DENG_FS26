@@ -42,7 +42,7 @@ After this step, all sample files are available under `/Volumes/<catalog>/raw/sa
 > **Why manual upload?** The Databricks **Free Edition** firewall blocks outbound HTTPS requests, so the original NYC TLC CloudFront URL (`d37ci6vzurychx.cloudfront.net`) cannot be reached from a notebook. The files must be pre-staged in the volume.
 
 ### Step 6: Run training notebooks
-You can now run the notebooks in `notebooks/sw09/` directly in the Databricks workspace.
+You can now run the notebooks in `notebooks/sw10_spark_batch/` directly in the Databricks workspace.
 
 ## Important Note
 
@@ -66,7 +66,7 @@ databricks/
 ├── notebooks/
 │   ├── copy_sample_data.py           # Notebook used by the sample data job
 │   ├── load_nyc_taxi_data.py         # Notebook used by the NYC taxi job
-│   └── sw09/                         # Training notebooks
+│   └── sw10_spark_batch/                         # Training notebooks
 └── sample_data/                      # Files copied to Unity Catalog volumes
 ```
 
