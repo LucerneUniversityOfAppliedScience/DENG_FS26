@@ -19,6 +19,11 @@
 
 # COMMAND ----------
 
+# MAGIC %pip install openpyxl
+# MAGIC dbutils.library.restartPython()
+
+# COMMAND ----------
+
 import pandas as pd
 
 XLSX_PATH = "/Volumes/workspace/raw/sample_data/xlsx/FinancialsSampleData.xlsx"
