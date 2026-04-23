@@ -35,6 +35,11 @@ resources:
       catalog_name: ${var.catalog_name}
       comment: "Demo and hands-on exercises"
 
+    nyc_taxi_schema:
+      name: nyc_taxi
+      catalog_name: ${var.catalog_name}
+      comment: "NYC Taxi trip data and reference tables"
+
   volumes:
     sample_data_volume:
       name: sample_data

@@ -34,7 +34,11 @@ The bundle creates all required schemas and volumes automatically.
 
 After this step, all sample files are available under `/Volumes/<catalog>/raw/sample_data`.
 
-### Step 5: Run training notebooks
+### Step 5: Run the NYC taxi data job (optional)
+1. Run `load_nyc_taxi_data_job` from the bundle UI (or Workflows Jobs view).
+2. The job downloads the 2025 yellow taxi parquet files and writes them to the Delta table `<catalog>.nyc_taxi.trips_2025`.
+
+### Step 6: Run training notebooks
 You can now run the notebooks in `notebooks/sw09/` directly in the Databricks workspace.
 
 ## Important Note
@@ -54,9 +58,11 @@ databricks/
 ├── databricks.yml                    # Main bundle config, created from template (git-ignored)
 ├── bundles/
 │   ├── uc_resources_bundle.yml       # Unity Catalog schemas & volumes
-│   └── copy_sample_data.job.yml      # Job to copy sample data
+│   ├── copy_sample_data.job.yml      # Job to copy sample data
+│   └── load_nyc_taxi_data.job.yml    # Job to load NYC yellow taxi 2025 data
 ├── notebooks/
-│   ├── copy_sample_data.py           # Notebook used by the job
+│   ├── copy_sample_data.py           # Notebook used by the sample data job
+│   ├── load_nyc_taxi_data.py         # Notebook used by the NYC taxi job
 │   └── sw09/                         # Training notebooks
 └── sample_data/                      # Files copied to Unity Catalog volumes
 ```
@@ -73,6 +79,7 @@ databricks/
 | `landing` | Landing zone for incoming data |
 | `external` | External data sources |
 | `demo` | Demo and exercise schema |
+| `nyc_taxi` | NYC taxi trip data and reference tables |
 
 ### Volumes
 - `workspace.raw.sample_data`

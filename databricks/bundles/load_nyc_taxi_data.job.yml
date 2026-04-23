@@ -1,0 +1,18 @@
+resources:
+  jobs:
+    load_nyc_taxi_data_job:
+      name: load_nyc_taxi_data
+
+      tasks:
+        - task_key: load_nyc_taxi_data
+          notebook_task:
+            notebook_path: ../notebooks/load_nyc_taxi_data.py
+            base_parameters:
+              catalog: ${var.catalog_name}
+              schema: ${resources.schemas.nyc_taxi_schema.name}
+            source: WORKSPACE
+
+      tags:
+        environment: "${bundle.target}"
+        purpose: "nyc_taxi_data_load"
+        managed_by: "databricks_asset_bundle"

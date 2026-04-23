@@ -171,36 +171,3 @@ else:
     print("❌ Operation failed - no files were copied")
     sys.exit(1)
 
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Download NYC Taxi Data (2025)
-
-# COMMAND ----------
-
-import pandas as pd
-
-nyc_target_dir = f"/Volumes/{catalog}/raw/files/NYC"
-os.makedirs(nyc_target_dir, exist_ok=True)
-
-base_url = "https://d37ci6vzurychx.cloudfront.net/trip-data"
-
-for month in range(1, 13):
-    month_str = str(month).zfill(2)
-    filename = f"yellow_tripdata_2025-{month_str}.parquet"
-    url = f"{base_url}/{filename}"
-    target_path = f"{nyc_target_dir}/{filename}"
-
-    if os.path.exists(target_path):
-        print(f"⏭️  Already exists, skipping: {filename}")
-        continue
-
-    try:
-        print(f"⬇️  Downloading: {url}")
-        pdf = pd.read_parquet(url)
-        pdf.to_parquet(target_path, index=False)
-        print(f"✅ Saved: {target_path} ({len(pdf):,} rows)")
-    except Exception as e:
-        print(f"❌ Failed {filename}: {e}")
-
-print("\n🎉 NYC Taxi Data download complete.")
