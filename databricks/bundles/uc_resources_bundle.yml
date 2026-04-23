@@ -1,0 +1,58 @@
+resources:
+  schemas:
+    bronze_schema:
+      name: bronze
+      catalog_name: ${var.catalog_name}
+      comment: "Bronze layer - raw ingested data"
+
+    silver_schema:
+      name: silver
+      catalog_name: ${var.catalog_name}
+      comment: "Silver layer - cleaned and validated data"
+
+    gold_schema:
+      name: gold
+      catalog_name: ${var.catalog_name}
+      comment: "Gold layer - business-ready aggregated data"
+
+    raw_schema:
+      name: raw
+      catalog_name: ${var.catalog_name}
+      comment: "Raw data storage"
+
+    external_schema:
+      name: external
+      catalog_name: ${var.catalog_name}
+      comment: "External data sources"
+
+    landing_schema:
+      name: landing
+      catalog_name: ${var.catalog_name}
+      comment: "Landing zone for incoming data"
+
+    demo_schema:
+      name: demo
+      catalog_name: ${var.catalog_name}
+      comment: "Demo and hands-on exercises"
+
+  volumes:
+    sample_data_volume:
+      name: sample_data
+      catalog_name: ${var.catalog_name}
+      schema_name: raw
+      volume_type: MANAGED
+      comment: "Sample data storage for training purposes"
+    
+    files_volume:
+      name: files
+      catalog_name: ${var.catalog_name}
+      schema_name: raw
+      volume_type: MANAGED
+      comment: "Files storage for training purposes"
+
+    demo_data_volume:
+      name: data
+      catalog_name: ${var.catalog_name}
+      schema_name: demo
+      volume_type: MANAGED
+      comment: "Data storage for demo notebooks and exercises"

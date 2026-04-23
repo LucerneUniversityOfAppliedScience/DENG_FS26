@@ -1,0 +1,19 @@
+resources:
+  jobs:
+    copy_sample_data_job:
+      name: copy_sample_data
+      
+      tasks:
+        - task_key: copy_sample_data
+          notebook_task:
+            notebook_path: ../notebooks/copy_sample_data.py
+            base_parameters:
+              Catalog: ${var.catalog_name}
+              schema_name: ${resources.schemas.raw_schema.name}
+              volume_name: sample_data
+            source: WORKSPACE
+            
+      tags:
+        environment: "${bundle.target}"
+        purpose: "sample_data_setup"
+        managed_by: "databricks_asset_bundle"

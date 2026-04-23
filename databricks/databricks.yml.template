@@ -1,0 +1,37 @@
+# This is a Databricks asset bundle definition.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+#
+# SETUP: Copy this file and rename it to databricks.yml, then adjust the values.
+#        databricks.yml is listed in .gitignore and will NOT be committed to git.
+#
+bundle:
+  name: bsc_eds_gis_fs2026
+
+variables:
+  catalog_name:
+    description: "Name of the catalog to use for training environment"
+    default: workspace  # <- Change this for different environments
+
+sync:
+  include:
+    - notebooks/**
+    - bundles/**
+    - sample_data/**
+
+include:
+  - ./bundles/uc_resources_bundle.yml
+  - ./bundles/copy_sample_data.job.yml
+
+targets:
+  dev:
+    mode: development
+    default: false
+    workspace:
+      host: https://your-workspace.azuredatabricks.net  # <- Change this with your own host
+
+  prod:
+    mode: production
+    default: true
+    workspace:
+      host: https://your-workspace.azuredatabricks.net  # <- Change this with your own host
+      root_path: /${bundle.name}

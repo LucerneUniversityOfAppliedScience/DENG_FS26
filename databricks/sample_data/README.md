@@ -1,0 +1,2 @@
+# Sample data
+This directory contains sample data files that can be used for testing and demonstration purposes. The files include various formats such as CSV, JSON, and text files, each containing example data relevant to different use cases.
