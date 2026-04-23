@@ -623,6 +623,8 @@ SELECT * FROM delta.`/Volumes/workspace/demo/data/banking_delta` VERSION AS OF 0
 -- MAGIC ## 12. Time travel by timestamp
 -- MAGIC
 -- MAGIC You can also query data as it was at a specific point in time.
+-- MAGIC
+-- MAGIC Attention! This could generate an error, if you chose a wrong timestamp ;-)
 
 -- COMMAND ----------
 

@@ -18,7 +18,7 @@ DROP TABLE IF EXISTS workspace.demo.yellow_taxi_exercise
 -- MAGIC %python
 -- MAGIC from pyspark.sql.functions import lit
 -- MAGIC
--- MAGIC RAW_DIR = "/Volumes/workspace/raw/files/NYC"
+-- MAGIC RAW_DIR = "/Volumes/workspace/nyc_taxi/raw_files/NYC"
 -- MAGIC TABLE_NAME = "workspace.demo.yellow_taxi_exercise"
 -- MAGIC
 -- MAGIC COLUMNS = [
@@ -29,7 +29,7 @@ DROP TABLE IF EXISTS workspace.demo.yellow_taxi_exercise
 -- MAGIC
 -- MAGIC files = sorted([f.path for f in dbutils.fs.ls(RAW_DIR) if f.name.endswith(".parquet")])
 -- MAGIC if not files:
--- MAGIC     raise FileNotFoundError(f"No Parquet files in {RAW_DIR}. Run copy_sample_data job first.")
+-- MAGIC     raise FileNotFoundError(f"No Parquet files in {RAW_DIR}. Upload the NYC parquet files to the volume first.")
 -- MAGIC
 -- MAGIC # Load January (150k rows)
 -- MAGIC df_jan = (spark.read.parquet(files[0])
