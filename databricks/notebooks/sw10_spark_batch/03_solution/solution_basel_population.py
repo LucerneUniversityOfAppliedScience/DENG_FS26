@@ -71,17 +71,17 @@ df_pop.printSchema()
 
 # COMMAND ----------
 
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+from pyspark.sql.types import StructType, StructField, StringType, LongType
 
 bs_schema = StructType([
-    StructField("datum",                StringType(),  True),
-    StructField("gemeinde",             StringType(),  True),
-    StructField("geschlecht",           StringType(),  True),
-    StructField("staatsangehoerigkeit", StringType(),  True),
-    StructField("anzahl",               IntegerType(), True),
-    StructField("jahr",                 StringType(),  True),
-    StructField("wohnviertel_name",     StringType(),  True),
-    StructField("wohnviertel_id",       StringType(),  True),
+    StructField("datum",                StringType(), True),
+    StructField("gemeinde",             StringType(), True),
+    StructField("geschlecht",           StringType(), True),
+    StructField("staatsangehoerigkeit", StringType(), True),
+    StructField("anzahl",               LongType(),   True),
+    StructField("jahr",                 StringType(), True),
+    StructField("wohnviertel_name",     StringType(), True),
+    StructField("wohnviertel_id",       StringType(), True),
 ])
 
 df_pop = spark.read.schema(bs_schema).parquet(PARQUET_PATH)
@@ -90,7 +90,7 @@ df_pop.printSchema()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC `anzahl` is now `IntegerType` as required.
+# MAGIC `anzahl` is `LongType` (matches the Parquet file's INT64 storage).
 
 # COMMAND ----------
 

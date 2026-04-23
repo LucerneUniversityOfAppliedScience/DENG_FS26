@@ -69,16 +69,16 @@ raise NotImplementedError("Task 2: inspect the data")
 # MAGIC ## Task 3 – Explicit Schema
 # MAGIC
 # MAGIC Read the file again, this time with an **explicit schema**.
-# MAGIC Use `IntegerType` for `anzahl` (instead of the inferred `LongType`).
+# MAGIC Use `LongType` for `anzahl` (the Parquet file stores it as INT64) and `StringType` for the rest.
 # MAGIC
 # MAGIC Hint: instead of `.option("inferSchema", "true")` use `.schema(my_schema)`.
 
 # COMMAND ----------
 
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+from pyspark.sql.types import StructType, StructField, StringType, LongType
 
 # TODO: define bs_schema with the correct types for all 8 columns
-# (use IntegerType for anzahl, StringType for everything else)
+# (use LongType for anzahl, StringType for everything else)
 bs_schema = None
 
 raise NotImplementedError("Task 3: define bs_schema and re-read the file")
