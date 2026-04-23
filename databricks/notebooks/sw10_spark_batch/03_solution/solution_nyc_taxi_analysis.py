@@ -59,21 +59,7 @@ print(f"Latest:    {date_range['latest']}")
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 3: Cache the DataFrame
-# MAGIC
-# MAGIC All subsequent steps reuse this DataFrame, so caching speeds things up significantly.
-
-# COMMAND ----------
-
-df.cache()
-df.count()  # materialize the cache
-print("DataFrame cached.")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ---
-# MAGIC ## Step 4: Data quality — null values per column
+# MAGIC ## Step 3: Data quality — null values per column
 # MAGIC
 # MAGIC Count how many `NULL` values each column has.
 
@@ -90,7 +76,7 @@ display(null_counts)
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 5: Build a cleaned DataFrame
+# MAGIC ## Step 4: Build a cleaned DataFrame
 # MAGIC
 # MAGIC Keep only trips with plausible values:
 # MAGIC - `trip_distance` between 0 (exclusive) and 100 miles
@@ -110,7 +96,6 @@ df_clean = (
     .filter(year("tpep_pickup_datetime") == 2025)
 )
 
-df_clean.cache()
 clean_count = df_clean.count()
 print(f"Clean rows:    {clean_count:,}")
 print(f"Removed rows:  {row_count - clean_count:,} ({(row_count - clean_count) / row_count:.2%})")
@@ -119,7 +104,7 @@ print(f"Removed rows:  {row_count - clean_count:,} ({(row_count - clean_count) /
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 6: Trips per month
+# MAGIC ## Step 5: Trips per month
 # MAGIC
 # MAGIC Count the clean trips per month and visualize them as a bar chart.
 
@@ -155,7 +140,7 @@ plt.show()
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 7: Trips per day of the week
+# MAGIC ## Step 6: Trips per day of the week
 # MAGIC
 # MAGIC Which weekday has the most trips? Visualize as a bar chart (Mon–Sun).
 
@@ -190,7 +175,7 @@ plt.show()
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 8: Trips per hour of the day
+# MAGIC ## Step 7: Trips per hour of the day
 # MAGIC
 # MAGIC Aggregate trips by pickup hour (0–23) and plot as a line chart.
 
@@ -221,7 +206,7 @@ plt.show()
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 9: Financial summary
+# MAGIC ## Step 8: Financial summary
 # MAGIC
 # MAGIC Compute total revenue, average fare, average tip, and average trip distance.
 
@@ -241,7 +226,7 @@ display(summary)
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 10: Fare amount distribution
+# MAGIC ## Step 9: Fare amount distribution
 # MAGIC
 # MAGIC Plot a histogram of `fare_amount` (for trips under USD 100 to keep the chart readable).
 
@@ -268,7 +253,7 @@ plt.show()
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 11: Tip percentage by payment type
+# MAGIC ## Step 10: Tip percentage by payment type
 # MAGIC
 # MAGIC Join the clean DataFrame with `workspace.nyc_taxi.payment_types`, compute the average
 # MAGIC tip as a percentage of the fare (`tip_amount / fare_amount * 100`), and plot per
@@ -309,7 +294,7 @@ plt.show()
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 12: Top 10 pickup locations
+# MAGIC ## Step 11: Top 10 pickup locations
 # MAGIC
 # MAGIC Find the 10 most frequent pickup `LocationID`s and plot them.
 
@@ -336,15 +321,3 @@ ax.set_title("Top 10 pickup locations")
 ax.grid(axis="y", alpha=0.3)
 plt.tight_layout()
 plt.show()
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ---
-# MAGIC ## Cleanup
-
-# COMMAND ----------
-
-df.unpersist()
-df_clean.unpersist()
-print("Caches released.")

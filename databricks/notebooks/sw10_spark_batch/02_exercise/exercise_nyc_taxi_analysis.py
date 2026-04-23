@@ -59,21 +59,7 @@ raise NotImplementedError("Step 2: row count, col count, date range")
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 3: Cache the DataFrame
-# MAGIC
-# MAGIC All subsequent steps reuse this DataFrame. Cache it and trigger the cache by calling
-# MAGIC `.count()` once.
-
-# COMMAND ----------
-
-# YOUR CODE HERE
-raise NotImplementedError("Step 3: cache df")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ---
-# MAGIC ## Step 4: Null values per column
+# MAGIC ## Step 3: Null values per column
 # MAGIC
 # MAGIC For each column in `df`, count how many `NULL` values it has. Display the result.
 # MAGIC
@@ -82,13 +68,13 @@ raise NotImplementedError("Step 3: cache df")
 # COMMAND ----------
 
 # YOUR CODE HERE
-raise NotImplementedError("Step 4: null count per column")
+raise NotImplementedError("Step 3: null count per column")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 5: Build a cleaned DataFrame `df_clean`
+# MAGIC ## Step 4: Build a cleaned DataFrame `df_clean`
 # MAGIC
 # MAGIC Keep only trips with plausible values:
 # MAGIC - `trip_distance` between 0 (exclusive) and 100 miles
@@ -96,18 +82,18 @@ raise NotImplementedError("Step 4: null count per column")
 # MAGIC - `passenger_count` between 1 and 6
 # MAGIC - `tpep_pickup_datetime` within the year 2025
 # MAGIC
-# MAGIC Cache `df_clean` and print how many rows were removed.
+# MAGIC Print how many rows were removed.
 
 # COMMAND ----------
 
 # YOUR CODE HERE
-raise NotImplementedError("Step 5: build df_clean")
+raise NotImplementedError("Step 4: build df_clean")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 6: Trips per month
+# MAGIC ## Step 5: Trips per month
 # MAGIC
 # MAGIC Group `df_clean` by pickup month and count trips. Then plot as a bar chart with
 # MAGIC matplotlib (x = month 1..12, y = trip count).
@@ -117,13 +103,13 @@ raise NotImplementedError("Step 5: build df_clean")
 # COMMAND ----------
 
 # YOUR CODE HERE
-raise NotImplementedError("Step 6: trips per month + bar chart")
+raise NotImplementedError("Step 5: trips per month + bar chart")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 7: Trips per day of the week
+# MAGIC ## Step 6: Trips per day of the week
 # MAGIC
 # MAGIC Group by `dayofweek(tpep_pickup_datetime)` and count. Plot as a bar chart ordered
 # MAGIC Mon–Sun.
@@ -134,26 +120,26 @@ raise NotImplementedError("Step 6: trips per month + bar chart")
 # COMMAND ----------
 
 # YOUR CODE HERE
-raise NotImplementedError("Step 7: trips per weekday + bar chart")
+raise NotImplementedError("Step 6: trips per weekday + bar chart")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 8: Trips per hour of the day
+# MAGIC ## Step 7: Trips per hour of the day
 # MAGIC
 # MAGIC Group by `hour(tpep_pickup_datetime)` and count. Plot as a line chart (x = 0..23).
 
 # COMMAND ----------
 
 # YOUR CODE HERE
-raise NotImplementedError("Step 8: trips per hour + line chart")
+raise NotImplementedError("Step 7: trips per hour + line chart")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 9: Financial summary
+# MAGIC ## Step 8: Financial summary
 # MAGIC
 # MAGIC From `df_clean`, compute in one DataFrame:
 # MAGIC - Total revenue (sum of `total_amount`)
@@ -166,13 +152,13 @@ raise NotImplementedError("Step 8: trips per hour + line chart")
 # COMMAND ----------
 
 # YOUR CODE HERE
-raise NotImplementedError("Step 9: financial summary")
+raise NotImplementedError("Step 8: financial summary")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 10: Fare amount distribution
+# MAGIC ## Step 9: Fare amount distribution
 # MAGIC
 # MAGIC Plot a histogram of `fare_amount` for trips with `fare_amount < 100`. To keep the
 # MAGIC plotting cheap, draw a 5% sample (`df.sample(fraction=0.05, seed=42)`) before
@@ -181,13 +167,13 @@ raise NotImplementedError("Step 9: financial summary")
 # COMMAND ----------
 
 # YOUR CODE HERE
-raise NotImplementedError("Step 10: fare histogram")
+raise NotImplementedError("Step 9: fare histogram")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 11: Tip percentage by payment type
+# MAGIC ## Step 10: Tip percentage by payment type
 # MAGIC
 # MAGIC Join `df_clean` with `workspace.nyc_taxi.payment_types` on `payment_type`. Compute
 # MAGIC the average tip as a percentage of the fare (`tip_amount / fare_amount * 100`),
@@ -198,29 +184,17 @@ raise NotImplementedError("Step 10: fare histogram")
 # COMMAND ----------
 
 # YOUR CODE HERE
-raise NotImplementedError("Step 11: tip percentage by payment type")
+raise NotImplementedError("Step 10: tip percentage by payment type")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 12: Top 10 pickup locations
+# MAGIC ## Step 11: Top 10 pickup locations
 # MAGIC
 # MAGIC Group by `PULocationID`, count, and keep the top 10. Plot as a bar chart.
 
 # COMMAND ----------
 
 # YOUR CODE HERE
-raise NotImplementedError("Step 12: top 10 pickup locations")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ---
-# MAGIC ## Cleanup
-# MAGIC
-# MAGIC Unpersist the cached DataFrames.
-
-# COMMAND ----------
-
-# YOUR CODE HERE
+raise NotImplementedError("Step 11: top 10 pickup locations")

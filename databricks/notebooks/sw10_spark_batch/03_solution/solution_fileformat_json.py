@@ -43,7 +43,7 @@ print(f"Row count: {df_raw.count()}")  # → 1 row!
 
 # COMMAND ----------
 
-from pyspark.sql.functions import explode, col
+from pyspark.sql.functions import explode, col, try_cast
 
 df_exploded = df_raw.select(explode(col("root.Page")).alias("offer"))
 print(f"Number of offers: {df_exploded.count():,}")
@@ -79,21 +79,23 @@ print(f"Bronze table written: {BRONZE_TABLE}")
 
 df_bronze = spark.table(BRONZE_TABLE)
 
+# Use try_cast so empty strings become NULL instead of raising
+# (Serverless Spark has ANSI mode on; plain .cast() fails on malformed input)
 df_silver = df_bronze.select(
     col("offer.Position.Hotel.Name").alias("hotel_name"),
     col("offer.Position.Hotel.Class").alias("hotel_class"),
-    col("offer.Position.Hotel.Lat").cast("double").alias("lat"),
-    col("offer.Position.Hotel.Lon").cast("double").alias("lon"),
+    try_cast(col("offer.Position.Hotel.Lat"), "double").alias("lat"),
+    try_cast(col("offer.Position.Hotel.Lon"), "double").alias("lon"),
     col("offer.Position.Destination.Country.Name").alias("country_name"),
     col("offer.Position.Destination.Region.Name").alias("region_name"),
     col("offer.Position.Destination.Location.Name").alias("location_name"),
-    col("offer.Position.Price.Value").cast("double").alias("price"),
+    try_cast(col("offer.Position.Price.Value"), "double").alias("price"),
     col("offer.Position.Price.Currency").alias("currency"),
-    col("offer.Position.Duration.Value").cast("int").alias("duration_days"),
+    try_cast(col("offer.Position.Duration.Value"), "int").alias("duration_days"),
     col("offer.Position.Package.DepartureDate.Value").alias("departure_date"),
     col("offer.Position.Package.TourOperator.Name").alias("tour_operator"),
     col("offer.Position.Package.MealPlan.Name").alias("meal_plan"),
-    col("offer.Position.Package.Hotelrating.Rating").cast("double").alias("rating"),
+    try_cast(col("offer.Position.Package.Hotelrating.Rating"), "double").alias("rating"),
 )
 
 df_silver.write.mode("overwrite").saveAsTable(SILVER_TABLE)

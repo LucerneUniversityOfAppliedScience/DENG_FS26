@@ -106,7 +106,10 @@ raise NotImplementedError("Step 3: write to Bronze")
 # MAGIC | `meal_plan` | `offer.Position.Package.MealPlan.Name` |
 # MAGIC | `rating` | `offer.Position.Package.Hotelrating.Rating` |
 # MAGIC
-# MAGIC **Hint:** Use `col("offer.Position.Hotel.Name").alias("hotel_name")` etc.
+# MAGIC **Hint:** Use `col("offer.Position.Hotel.Name").alias("hotel_name")` etc. For numeric
+# MAGIC fields (`lat`, `lon`, `price`, `duration_days`, `rating`), use
+# MAGIC `try_cast(col(...), "double")` instead of `.cast("double")` — the raw JSON has empty
+# MAGIC strings in some rows, and plain `cast` fails under Serverless ANSI mode.
 
 # COMMAND ----------
 

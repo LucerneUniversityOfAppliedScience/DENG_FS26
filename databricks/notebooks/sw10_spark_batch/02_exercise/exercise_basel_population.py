@@ -60,6 +60,7 @@ raise NotImplementedError("Task 1: read the parquet file")
 # COMMAND ----------
 
 # TODO: show the first 10 rows and the schema of df_pop
+# Hint: df_pop.show(10) and df_pop.printSchema()
 
 raise NotImplementedError("Task 2: inspect the data")
 
@@ -96,6 +97,7 @@ raise NotImplementedError("Task 3: define bs_schema and re-read the file")
 # COMMAND ----------
 
 # TODO: write df_pop as a Delta table to TABLE_POP (mode: overwrite)
+# Hint: df_pop.write.mode("overwrite").saveAsTable(TABLE_POP)
 
 raise NotImplementedError("Task 4: save as Delta table")
 
@@ -110,6 +112,7 @@ raise NotImplementedError("Task 4: save as Delta table")
 # COMMAND ----------
 
 # TODO: write a spark.sql() or %sql query to check for Iran / 1980
+# Hint: SELECT * FROM {TABLE_POP} WHERE staatsangehoerigkeit = 'Iran' AND jahr = '1980'
 
 raise NotImplementedError("Task 5: query for Iran, 1980")
 
@@ -124,6 +127,9 @@ raise NotImplementedError("Task 5: query for Iran, 1980")
 # COMMAND ----------
 
 # TODO: write the aggregation query and store the result in df_by_country
+# Hint: SELECT staatsangehoerigkeit, jahr, sum(anzahl) AS anzahl
+#         FROM ... WHERE staatsangehoerigkeit <> 'Schweiz'
+#         GROUP BY ... ORDER BY anzahl DESC
 
 raise NotImplementedError("Task 6: aggregate by country and year")
 
@@ -137,6 +143,7 @@ raise NotImplementedError("Task 6: aggregate by country and year")
 # COMMAND ----------
 
 # TODO: write df_by_country to TABLE_AGG
+# Hint: same pattern as Task 4
 
 raise NotImplementedError("Task 7: save aggregation table")
 
@@ -156,6 +163,8 @@ raise NotImplementedError("Task 7: save aggregation table")
 # COMMAND ----------
 
 # TODO: load TABLE_AGG, filter to top 10 countries, and display the result
+# Hint: first pick the top 10 countries by total anzahl (GROUP BY + ORDER BY + LIMIT 10),
+# then join/filter TABLE_AGG to only those countries
 
 raise NotImplementedError("Task 8: load and display aggregation for visualization")
 
@@ -174,6 +183,7 @@ raise NotImplementedError("Task 8: load and display aggregation for visualizatio
 # COMMAND ----------
 
 # TODO: use spark.sql() with a WHERE clause to filter the table
+# Hint: df_women_2010 = spark.sql(f"SELECT * FROM {TABLE_POP} WHERE gemeinde='Basel' AND geschlecht='W' AND jahr='2010'")
 
 raise NotImplementedError("Task 9: filter for women in Basel, 2010")
 
@@ -189,6 +199,7 @@ raise NotImplementedError("Task 9: filter for women in Basel, 2010")
 # COMMAND ----------
 
 # TODO: display df_women_2010 (sorted by anzahl desc)
+# Hint: display(df_women_2010.orderBy(col("anzahl").desc()))
 
 raise NotImplementedError("Task 10: display women data for visualization")
 

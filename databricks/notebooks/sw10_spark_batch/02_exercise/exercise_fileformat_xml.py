@@ -34,6 +34,7 @@ print(f"XML file: {XML_PATH}")
 
 # COMMAND ----------
 
+# Hint: spark.read.format("xml").option("rowTag", "country").load(XML_PATH)
 # YOUR CODE HERE
 raise NotImplementedError("Step 1: read XML and write to Bronze")
 
@@ -69,6 +70,8 @@ raise NotImplementedError("Step 1: read XML and write to Bronze")
 
 # COMMAND ----------
 
+# Hint: read the bronze table, then df.select(col("id"), col("name"), ...,
+#       try_cast(col("latitude"), "double").alias("latitude"), ...)
 # YOUR CODE HERE
 raise NotImplementedError("Step 2: flatten to Silver")
 

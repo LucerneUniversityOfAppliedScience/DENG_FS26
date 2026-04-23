@@ -6,14 +6,22 @@
 # MAGIC In this exercise you will load an **Excel file** with 2 sheets into Bronze tables,
 # MAGIC then clean them up into Silver tables.
 # MAGIC
+# MAGIC Databricks Serverless does not have a native Excel reader — we read the file with
+# MAGIC **pandas** and then convert it to a **PySpark** DataFrame.
+# MAGIC
+# MAGIC **Naming convention used below:**
+# MAGIC - `pdf` = pandas DataFrame
+# MAGIC - `df`  = PySpark DataFrame
+# MAGIC
 # MAGIC ## Learning Goals
-# MAGIC - Read Excel files with Spark (multiple sheets)
+# MAGIC - Read Excel sheets with pandas and bridge to Spark
 # MAGIC - Apply the Bronze/Silver medallion pattern
 
 # COMMAND ----------
 
-XLSX_PATH = "/Volumes/workspace/raw/sample_data/xlsx/FinancialsSampleData.xlsx"
+import pandas as pd
 
+XLSX_PATH = "/Volumes/workspace/raw/sample_data/xlsx/FinancialsSampleData.xlsx"
 print(f"XLSX file: {XLSX_PATH}")
 
 # COMMAND ----------
@@ -26,20 +34,19 @@ print(f"XLSX file: {XLSX_PATH}")
 # MAGIC - **Financials1**: Monthly budget data (Account, Business Unit, Year, Jan–Dec)
 # MAGIC - **Financials2**: Sales transactions (Segment, Country, Product, Sales, Profit, ...)
 # MAGIC
-# MAGIC Use `spark.read.format("com.crealytics.spark.excel")` to read each sheet.
+# MAGIC For each sheet:
+# MAGIC 1. `pdf = pd.read_excel(XLSX_PATH, sheet_name="Financials1")`
+# MAGIC 2. `df = spark.createDataFrame(pdf)`
+# MAGIC 3. Write `df` as a Bronze Delta table.
 # MAGIC
-# MAGIC Key options:
-# MAGIC - `.option("header", "true")` — first row contains column names
-# MAGIC - `.option("dataAddress", "'Financials1'!A1")` — specify which sheet to read
-# MAGIC
-# MAGIC Save each sheet as a separate Bronze table:
+# MAGIC Target tables:
 # MAGIC - `workspace.bronze.financials_budget`
 # MAGIC - `workspace.bronze.financials_sales`
 
 # COMMAND ----------
 
 # YOUR CODE HERE
-raise NotImplementedError("Step 1: read XLSX sheets and write to Bronze")
+raise NotImplementedError("Step 1: read XLSX sheets with pandas, create Spark DataFrames, write to Bronze")
 
 # COMMAND ----------
 
@@ -63,8 +70,11 @@ raise NotImplementedError("Step 1: read XLSX sheets and write to Bronze")
 # MAGIC
 # MAGIC **Hints to look for:**
 # MAGIC - Are numeric columns actually numeric or stored as strings?
-# MAGIC - Does the `Date` column in Financials2 look correct?
 # MAGIC - Are there column names with typos or extra spaces?
+# MAGIC
+# MAGIC **Hint on casting:** Serverless Spark has ANSI mode on. For numeric casts use
+# MAGIC `try_cast(col(...), "double")` instead of `.cast("double")` so that malformed or
+# MAGIC empty values become `NULL` instead of raising an error.
 # MAGIC
 # MAGIC Create Silver tables:
 # MAGIC - `workspace.silver.financials_budget`

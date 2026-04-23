@@ -93,6 +93,8 @@ SELECT count(*) AS total_rows FROM workspace.demo.yellow_taxi_exercise
 -- COMMAND ----------
 
 -- TODO: Inspect the table
+-- Hint: DESCRIBE DETAIL workspace.demo.yellow_taxi_exercise;
+--       DESCRIBE HISTORY workspace.demo.yellow_taxi_exercise;
 -- YOUR CODE HERE
 
 -- COMMAND ----------
@@ -133,6 +135,8 @@ SELECT count(*) AS total_rows FROM workspace.demo.yellow_taxi_exercise
 -- COMMAND ----------
 
 -- TODO: Run the UPDATE
+-- Hint: UPDATE workspace.demo.yellow_taxi_exercise SET fare_amount = fare_amount * 1.15
+--       WHERE VendorID = 1 AND source_month = 'January';
 -- YOUR CODE HERE
 
 -- COMMAND ----------
@@ -156,6 +160,8 @@ SELECT count(*) AS total_rows FROM workspace.demo.yellow_taxi_exercise
 -- COMMAND ----------
 
 -- TODO: Count, delete, verify
+-- Hint: SELECT count(*) FROM ... WHERE trip_distance = 0;
+--       DELETE FROM ... WHERE trip_distance = 0;
 -- YOUR CODE HERE
 
 -- COMMAND ----------
@@ -196,6 +202,8 @@ SELECT count(*) AS total_rows FROM workspace.demo.yellow_taxi_exercise
 -- COMMAND ----------
 
 -- TODO: OPTIMIZE and ZORDER
+-- Hint: OPTIMIZE workspace.demo.yellow_taxi_exercise;
+--       OPTIMIZE workspace.demo.yellow_taxi_exercise ZORDER BY (PULocationID);
 -- YOUR CODE HERE
 
 -- COMMAND ----------
@@ -217,6 +225,8 @@ SELECT count(*) AS total_rows FROM workspace.demo.yellow_taxi_exercise
 -- COMMAND ----------
 
 -- TODO: DESCRIBE DETAIL, then VACUUM
+-- Hint: DESCRIBE DETAIL workspace.demo.yellow_taxi_exercise;
+--       VACUUM workspace.demo.yellow_taxi_exercise;
 -- YOUR CODE HERE
 
 -- COMMAND ----------
@@ -238,6 +248,7 @@ SELECT count(*) AS total_rows FROM workspace.demo.yellow_taxi_exercise
 -- COMMAND ----------
 
 -- TODO: DESCRIBE HISTORY
+-- Hint: DESCRIBE HISTORY workspace.demo.yellow_taxi_exercise;
 -- YOUR CODE HERE
 
 -- COMMAND ----------
@@ -255,6 +266,9 @@ SELECT count(*) AS total_rows FROM workspace.demo.yellow_taxi_exercise
 -- COMMAND ----------
 
 -- TODO: Add column, populate, verify
+-- Hint: ALTER TABLE ... ADD COLUMN congestion_zone STRING;
+--       UPDATE ... SET congestion_zone = CASE WHEN PULocationID IN (...) THEN 'Midtown' ELSE 'Other' END;
+--       SELECT congestion_zone, count(*) FROM ... GROUP BY congestion_zone;
 -- YOUR CODE HERE
 
 -- COMMAND ----------

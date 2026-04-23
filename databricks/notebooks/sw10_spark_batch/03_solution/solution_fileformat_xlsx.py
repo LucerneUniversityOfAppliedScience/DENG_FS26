@@ -2,11 +2,16 @@
 
 # MAGIC %md
 # MAGIC # XLSX to Medallion: Solution
+# MAGIC
+# MAGIC Databricks Serverless does not have the `com.crealytics.spark.excel` package.
+# MAGIC We read the Excel file with **pandas** (`pdf`) and then convert it to a
+# MAGIC **PySpark DataFrame** (`df`) for the Bronze/Silver pipeline.
 
 # COMMAND ----------
 
-XLSX_PATH = "/Volumes/workspace/raw/sample_data/xlsx/FinancialsSampleData.xlsx"
+import pandas as pd
 
+XLSX_PATH = "/Volumes/workspace/raw/sample_data/xlsx/FinancialsSampleData.xlsx"
 print(f"XLSX file: {XLSX_PATH}")
 
 # COMMAND ----------
@@ -14,25 +19,23 @@ print(f"XLSX file: {XLSX_PATH}")
 # MAGIC %md
 # MAGIC ---
 # MAGIC ## Step 1: Read both sheets into Bronze
+# MAGIC
+# MAGIC `pd.read_excel` can read one sheet at a time. We create one pandas DataFrame
+# MAGIC per sheet, convert it to a Spark DataFrame, then persist it as a Bronze Delta
+# MAGIC table.
 
 # COMMAND ----------
 
-df_budget = (spark.read
-    .format("com.crealytics.spark.excel")
-    .option("header", "true")
-    .option("dataAddress", "'Financials1'!A1")
-    .load(XLSX_PATH))
+pdf_budget = pd.read_excel(XLSX_PATH, sheet_name="Financials1")
+df_budget = spark.createDataFrame(pdf_budget)
 
 print(f"Financials1: {df_budget.count()} rows")
 df_budget.printSchema()
 
 # COMMAND ----------
 
-df_sales = (spark.read
-    .format("com.crealytics.spark.excel")
-    .option("header", "true")
-    .option("dataAddress", "'Financials2'!A1")
-    .load(XLSX_PATH))
+pdf_sales = pd.read_excel(XLSX_PATH, sheet_name="Financials2")
+df_sales = spark.createDataFrame(pdf_sales)
 
 print(f"Financials2: {df_sales.count()} rows")
 df_sales.printSchema()
@@ -60,8 +63,8 @@ print("Bronze tables written")
 # MAGIC ## Step 2: Clean up to Silver
 # MAGIC
 # MAGIC **Issues found:**
-# MAGIC - `Financials1`: Column name typo "Businees Unit" → "Business Unit", monthly values may be strings
-# MAGIC - `Financials2`: `Date` column is an Excel serial number (days since 1900-01-01), column " Sales" has a leading space
+# MAGIC - `Financials1`: Column name typo "Businees Unit" → "Business Unit"
+# MAGIC - `Financials2`: Column " Sales" has a leading space
 
 # COMMAND ----------
 
@@ -75,9 +78,9 @@ print("Bronze tables written")
 
 # COMMAND ----------
 
-from pyspark.sql.functions import col
+from pyspark.sql.functions import col, try_cast
 
-# Silver: Budget table — fix column name typo, ensure numeric types
+# Silver: Budget table — fix column name typo, ensure numeric types for months
 df_budget_silver = (spark.table("workspace.bronze.financials_budget")
     .withColumnRenamed("Businees Unit", "business_unit")
     .withColumnRenamed("Account", "account")
@@ -86,9 +89,10 @@ df_budget_silver = (spark.table("workspace.bronze.financials_budget")
     .withColumnRenamed("Scenario", "scenario")
 )
 
-# Cast monthly columns to double
 for month in ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]:
-    df_budget_silver = df_budget_silver.withColumn(month.lower(), col(month).cast("double")).drop(month)
+    df_budget_silver = df_budget_silver.withColumn(
+        month.lower(), try_cast(col(month), "double")
+    ).drop(month)
 
 df_budget_silver.write.mode("overwrite").saveAsTable("workspace.silver.financials_budget")
 print("Silver table written: workspace.silver.financials_budget")
@@ -100,27 +104,24 @@ print("Silver table written: workspace.silver.financials_budget")
 
 # COMMAND ----------
 
-from pyspark.sql.functions import expr
-
-# Silver: Sales table — fix Date serial number, trim column names, cast types
+# Silver: Sales table — trim column names and cast numeric types
 df_sales_silver = (spark.table("workspace.bronze.financials_sales")
     .withColumnRenamed("Segment", "segment")
     .withColumnRenamed("Country", "country")
     .withColumnRenamed("Product", "product")
     .withColumnRenamed("Discount Band", "discount_band")
-    .withColumn("units_sold", col("Units Sold").cast("double")).drop("Units Sold")
-    .withColumn("manufacturing_price", col("Manufacturing Price").cast("double")).drop("Manufacturing Price")
-    .withColumn("sale_price", col("Sale Price").cast("double")).drop("Sale Price")
-    .withColumn("gross_sales", col("Gross Sales").cast("double")).drop("Gross Sales")
-    .withColumn("discounts", col("Discounts").cast("double")).drop("Discounts")
-    .withColumn("sales", col(" Sales").cast("double")).drop(" Sales")
-    .withColumn("cogs", col("COGS").cast("double")).drop("COGS")
-    .withColumn("profit", col("Profit").cast("double")).drop("Profit")
-    # Date is Excel serial number: days since 1899-12-30
-    .withColumn("date", expr("date_add('1899-12-30', CAST(Date AS INT))")).drop("Date")
-    .withColumn("month_number", col("Month Number").cast("int")).drop("Month Number")
+    .withColumn("units_sold", try_cast(col("Units Sold"), "double")).drop("Units Sold")
+    .withColumn("manufacturing_price", try_cast(col("Manufacturing Price"), "double")).drop("Manufacturing Price")
+    .withColumn("sale_price", try_cast(col("Sale Price"), "double")).drop("Sale Price")
+    .withColumn("gross_sales", try_cast(col("Gross Sales"), "double")).drop("Gross Sales")
+    .withColumn("discounts", try_cast(col("Discounts"), "double")).drop("Discounts")
+    .withColumn("sales", try_cast(col(" Sales"), "double")).drop(" Sales")
+    .withColumn("cogs", try_cast(col("COGS"), "double")).drop("COGS")
+    .withColumn("profit", try_cast(col("Profit"), "double")).drop("Profit")
+    .withColumnRenamed("Date", "date")
+    .withColumn("month_number", try_cast(col("Month Number"), "int")).drop("Month Number")
     .withColumnRenamed("Month Name", "month_name")
-    .withColumn("year", col("Year").cast("int")).drop("Year")
+    .withColumn("year", try_cast(col("Year"), "int")).drop("Year")
 )
 
 df_sales_silver.write.mode("overwrite").saveAsTable("workspace.silver.financials_sales")
