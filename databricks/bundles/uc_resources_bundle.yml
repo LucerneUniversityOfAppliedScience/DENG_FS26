@@ -61,3 +61,10 @@ resources:
       schema_name: demo
       volume_type: MANAGED
       comment: "Data storage for demo notebooks and exercises"
+
+    nyc_taxi_raw_files_volume:
+      name: raw_files
+      catalog_name: ${var.catalog_name}
+      schema_name: nyc_taxi
+      volume_type: MANAGED
+      comment: "Raw NYC taxi parquet files (pre-staged, since Free Edition blocks direct URL fetch)"

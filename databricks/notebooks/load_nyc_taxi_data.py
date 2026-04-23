@@ -1,6 +1,10 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Download NYC Taxi Data 
+# MAGIC # Download NYC Taxi Data
+# MAGIC
+# MAGIC > **Note:** This notebook fetches the 2025 yellow taxi parquet files directly from the NYC TLC CloudFront URL.
+# MAGIC > On **Databricks Free Edition** the outbound firewall may block these requests (`Temporary failure in name resolution`).
+# MAGIC > In that case, use the pre-staged files from Ilias and upload them to `/Volumes/<catalog>/nyc_taxi/raw_files/` instead.
 
 # COMMAND ----------
 

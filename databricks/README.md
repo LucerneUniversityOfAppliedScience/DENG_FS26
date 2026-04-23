@@ -35,8 +35,11 @@ The bundle creates all required schemas and volumes automatically.
 After this step, all sample files are available under `/Volumes/<catalog>/raw/sample_data`.
 
 ### Step 5: Run the NYC taxi data job (optional)
-1. Run `load_nyc_taxi_data_job` from the bundle UI (or Workflows Jobs view).
-2. The job downloads the 2025 yellow taxi parquet files and writes them to the Delta table `<catalog>.nyc_taxi.trips_2025`.
+1. Upload the pre-staged NYC taxi parquet files (`yellow_tripdata_2025-01.parquet` … `yellow_tripdata_2025-12.parquet`) into the volume `/Volumes/<catalog>/nyc_taxi/raw_files/`. The files are available on **Ilias**.
+2. Run `load_nyc_taxi_data_job` from the bundle UI (or Workflows Jobs view).
+3. The job reads the parquet files from the volume and writes them to the Delta table `<catalog>.nyc_taxi.trips_2025`.
+
+> **Why manual upload?** The Databricks **Free Edition** firewall blocks outbound HTTPS requests, so the original NYC TLC CloudFront URL (`d37ci6vzurychx.cloudfront.net`) cannot be reached from a notebook. The files must be pre-staged in the volume.
 
 ### Step 6: Run training notebooks
 You can now run the notebooks in `notebooks/sw09/` directly in the Databricks workspace.
@@ -85,6 +88,7 @@ databricks/
 - `workspace.raw.sample_data`
 - `workspace.raw.files`
 - `workspace.demo.data`
+- `workspace.nyc_taxi.raw_files` — pre-staged NYC taxi parquet files
 
 ## Additional Resources
 
