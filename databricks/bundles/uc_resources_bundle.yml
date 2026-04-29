@@ -68,3 +68,10 @@ resources:
       schema_name: nyc_taxi
       volume_type: MANAGED
       comment: "Raw NYC taxi parquet files (pre-staged, since Free Edition blocks direct URL fetch)"
+
+    landing_files_volume:
+      name: files
+      catalog_name: ${var.catalog_name}
+      schema_name: landing
+      volume_type: MANAGED
+      comment: "Landing zone for Auto Loader incremental ingestion (sw11 examples)"
