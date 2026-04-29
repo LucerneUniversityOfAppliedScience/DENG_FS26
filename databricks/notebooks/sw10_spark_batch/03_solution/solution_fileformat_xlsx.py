@@ -91,7 +91,7 @@ print("Bronze tables written")
 
 # COMMAND ----------
 
-from pyspark.sql.functions import col, try_cast
+from pyspark.sql.functions import expr
 
 # Silver: Budget table — fix column name typo, ensure numeric types for months
 df_budget_silver = (spark.table("workspace.bronze.financials_budget")
@@ -104,7 +104,7 @@ df_budget_silver = (spark.table("workspace.bronze.financials_budget")
 
 for month in ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]:
     df_budget_silver = df_budget_silver.withColumn(
-        month.lower(), try_cast(col(month), "double")
+        month.lower(), expr(f"try_cast(`{month}` as double)")
     ).drop(month)
 
 df_budget_silver.write.mode("overwrite").saveAsTable("workspace.silver.financials_budget")
@@ -123,18 +123,18 @@ df_sales_silver = (spark.table("workspace.bronze.financials_sales")
     .withColumnRenamed("Country", "country")
     .withColumnRenamed("Product", "product")
     .withColumnRenamed("Discount_Band", "discount_band")
-    .withColumn("units_sold", try_cast(col("Units_Sold"), "double")).drop("Units_Sold")
-    .withColumn("manufacturing_price", try_cast(col("Manufacturing_Price"), "double")).drop("Manufacturing_Price")
-    .withColumn("sale_price", try_cast(col("Sale_Price"), "double")).drop("Sale_Price")
-    .withColumn("gross_sales", try_cast(col("Gross_Sales"), "double")).drop("Gross_Sales")
-    .withColumn("discounts", try_cast(col("Discounts"), "double")).drop("Discounts")
-    .withColumn("sales", try_cast(col("_Sales"), "double")).drop("_Sales")
-    .withColumn("cogs", try_cast(col("COGS"), "double")).drop("COGS")
-    .withColumn("profit", try_cast(col("Profit"), "double")).drop("Profit")
+    .withColumn("units_sold", expr("try_cast(Units_Sold as double)")).drop("Units_Sold")
+    .withColumn("manufacturing_price", expr("try_cast(Manufacturing_Price as double)")).drop("Manufacturing_Price")
+    .withColumn("sale_price", expr("try_cast(Sale_Price as double)")).drop("Sale_Price")
+    .withColumn("gross_sales", expr("try_cast(Gross_Sales as double)")).drop("Gross_Sales")
+    .withColumn("discounts", expr("try_cast(Discounts as double)")).drop("Discounts")
+    .withColumn("sales", expr("try_cast(`_Sales` as double)")).drop("_Sales")
+    .withColumn("cogs", expr("try_cast(COGS as double)")).drop("COGS")
+    .withColumn("profit", expr("try_cast(Profit as double)")).drop("Profit")
     .withColumnRenamed("Date", "date")
-    .withColumn("month_number", try_cast(col("Month_Number"), "int")).drop("Month_Number")
+    .withColumn("month_number", expr("try_cast(Month_Number as int)")).drop("Month_Number")
     .withColumnRenamed("Month_Name", "month_name")
-    .withColumn("year", try_cast(col("Year"), "int")).drop("Year")
+    .withColumn("year", expr("try_cast(Year as int)")).drop("Year")
 )
 
 df_sales_silver.write.mode("overwrite").saveAsTable("workspace.silver.financials_sales")
