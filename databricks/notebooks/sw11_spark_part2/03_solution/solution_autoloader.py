@@ -35,8 +35,7 @@
 # MAGIC Auto Loader uses Structured Streaming under the hood. We use
 # MAGIC `.trigger(availableNow=True)` so the stream runs as a single batch over
 # MAGIC currently-visible files and stops — perfect for notebook-driven workflows
-# MAGIC and Free Edition Serverless. If `cloudFiles` is not available on your
-# MAGIC runtime, fall back to a manual tracker pattern (sketched at the end).
+# MAGIC and Free Edition Serverless.
 # MAGIC
 # MAGIC ## Before you run — REQUIRED
 # MAGIC
@@ -475,31 +474,3 @@ except Exception:
 # MAGIC GROUP BY 1
 # MAGIC ORDER BY 1
 
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ---
-# MAGIC ## Free Edition fallback (if `cloudFiles` is unavailable)
-# MAGIC
-# MAGIC If your runtime rejects `cloudFiles`, replace `readStream.format("cloudFiles")`
-# MAGIC with this manual pattern:
-# MAGIC
-# MAGIC ```python
-# MAGIC tracker_table = "workspace.bronze._loaded_files"
-# MAGIC spark.sql(f"CREATE TABLE IF NOT EXISTS {tracker_table} (file_path STRING, load_ts TIMESTAMP)")
-# MAGIC
-# MAGIC loaded = {row.file_path for row in spark.table(tracker_table).collect()}
-# MAGIC all_files = [f.path for f in dbutils.fs.ls(INCOMING_DIR)]
-# MAGIC new_files = [f for f in all_files if f not in loaded]
-# MAGIC
-# MAGIC if new_files:
-# MAGIC     df_new = spark.read.option("header", "true").csv(new_files)
-# MAGIC     df_new.write.mode("append").saveAsTable(BRONZE_TABLE)
-# MAGIC     spark.createDataFrame(
-# MAGIC         [(f, None) for f in new_files], "file_path STRING, load_ts TIMESTAMP"
-# MAGIC     ).write.mode("append").saveAsTable(tracker_table)
-# MAGIC ```
-# MAGIC
-# MAGIC Same Bronze content; you lose schema evolution and `cleanSource`. This
-# MAGIC fallback is the reason Auto Loader exists in the first place — every
-# MAGIC team that builds the manual version eventually hits the gotchas.
