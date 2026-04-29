@@ -20,6 +20,7 @@ from pathlib import Path
 # COMMAND ----------
 
 dbutils.widgets.text(name="catalog_name", defaultValue="workspace", label="Catalog")
+dbutils.widgets.text(name="nyc_schema", defaultValue="nyc_taxi", label="NYC Taxi Schema")
 
 # COMMAND ----------
 
@@ -170,4 +171,76 @@ elif copied_files > 0:
 else:
     print("❌ Operation failed - no files were copied")
     sys.exit(1)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## NYC Taxi Lookup Tables
+# MAGIC
+# MAGIC Creates the three static lookup tables (`vendor_list`, `payment_types`, `rate_codes`) in the
+# MAGIC `nyc_taxi` schema. These are used by the NYC taxi exercises and do not depend on the
+# MAGIC trip data parquet files.
+
+# COMMAND ----------
+
+nyc_schema = dbutils.widgets.get("nyc_schema")
+spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{nyc_schema}")
+print(f"✓ Schema ready: {catalog}.{nyc_schema}")
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC CREATE OR REPLACE TABLE IDENTIFIER(:catalog_name || '.' || :nyc_schema || '.vendor_list') (
+# MAGIC   VendorID    INT,
+# MAGIC   VendorName  STRING
+# MAGIC );
+# MAGIC
+# MAGIC INSERT INTO IDENTIFIER(:catalog_name || '.' || :nyc_schema || '.vendor_list') VALUES
+# MAGIC   (1, 'Creative Mobile Technologies (CMT)'),
+# MAGIC   (2, 'Curb Mobility (Curb)'),
+# MAGIC   (3, 'Arro'),
+# MAGIC   (4, 'Dispatch'),
+# MAGIC   (5, 'NYC Taxi'),
+# MAGIC   (6, 'Myle Technologies'),
+# MAGIC   (7, 'Helix');
+# MAGIC
+# MAGIC SELECT * FROM IDENTIFIER(:catalog_name || '.' || :nyc_schema || '.vendor_list');
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC CREATE OR REPLACE TABLE IDENTIFIER(:catalog_name || '.' || :nyc_schema || '.payment_types') (
+# MAGIC   payment_type        INT,
+# MAGIC   payment_description STRING
+# MAGIC );
+# MAGIC
+# MAGIC INSERT INTO IDENTIFIER(:catalog_name || '.' || :nyc_schema || '.payment_types') VALUES
+# MAGIC   (0, 'Flex Fare trip'),
+# MAGIC   (1, 'Credit card'),
+# MAGIC   (2, 'Cash'),
+# MAGIC   (3, 'No charge'),
+# MAGIC   (4, 'Dispute'),
+# MAGIC   (5, 'Unknown'),
+# MAGIC   (6, 'Voided trip');
+# MAGIC
+# MAGIC SELECT * FROM IDENTIFIER(:catalog_name || '.' || :nyc_schema || '.payment_types');
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC CREATE OR REPLACE TABLE IDENTIFIER(:catalog_name || '.' || :nyc_schema || '.rate_codes') (
+# MAGIC   RatecodeID          INT,
+# MAGIC   RatecodeDescription STRING
+# MAGIC );
+# MAGIC
+# MAGIC INSERT INTO IDENTIFIER(:catalog_name || '.' || :nyc_schema || '.rate_codes') VALUES
+# MAGIC   (1,  'Standard rate'),
+# MAGIC   (2,  'JFK flat fare'),
+# MAGIC   (3,  'Newark flat fare'),
+# MAGIC   (4,  'Nassau or Westchester'),
+# MAGIC   (5,  'Negotiated fare'),
+# MAGIC   (6,  'Group ride'),
+# MAGIC   (99, 'Unknown or null');
+# MAGIC
+# MAGIC SELECT * FROM IDENTIFIER(:catalog_name || '.' || :nyc_schema || '.rate_codes');
 

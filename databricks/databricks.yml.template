@@ -21,7 +21,6 @@ sync:
 include:
   - ./bundles/uc_resources_bundle.yml
   - ./bundles/copy_sample_data.job.yml
-  - ./bundles/load_nyc_taxi_data.job.yml
 
 targets:
   dev:
