@@ -52,6 +52,14 @@
 # MAGIC   SCD typology) — see `kimballgroup.com`
 # MAGIC - Databricks docs on MERGE: `https://docs.databricks.com/aws/en/delta/merge`
 # MAGIC - dbt snapshots (same idea in another tool): `https://docs.getdbt.com/docs/build/snapshots`
+# MAGIC
+# MAGIC ## Before you run
+# MAGIC
+# MAGIC The sw11 notebooks introduced a new `landing/files` volume in the UC
+# MAGIC bundle. If you cloned the repo or pulled new changes, you must
+# MAGIC **redeploy the bundle** before running any sw11 notebook — even ones
+# MAGIC that don't need the new volume — so your workspace's bundle state
+# MAGIC matches the repo. In the bundle UI, click **Deploy** once.
 
 # COMMAND ----------
 

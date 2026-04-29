@@ -29,6 +29,14 @@
 # MAGIC pre-staged on Free Edition because the upstream CloudFront URL is blocked
 # MAGIC by the egress firewall) joined with the small `vendor_list` lookup created
 # MAGIC by `copy_sample_data.py`.
+# MAGIC
+# MAGIC ## Before you run
+# MAGIC
+# MAGIC The sw11 notebooks introduced a new `landing/files` volume in the UC
+# MAGIC bundle. If you cloned the repo or pulled new changes, you must
+# MAGIC **redeploy the bundle** before running any sw11 notebook — even ones
+# MAGIC that don't need the new volume — so your workspace's bundle state
+# MAGIC matches the repo. In the bundle UI, click **Deploy** once.
 
 # COMMAND ----------
 

@@ -37,6 +37,15 @@
 # MAGIC currently-visible files and stops — perfect for notebook-driven workflows
 # MAGIC and Free Edition Serverless. If `cloudFiles` is not available on your
 # MAGIC runtime, fall back to a manual tracker pattern (sketched at the end).
+# MAGIC
+# MAGIC ## Before you run — REQUIRED
+# MAGIC
+# MAGIC This notebook writes to `/Volumes/workspace/landing/files/...`, which is
+# MAGIC a **new volume** added to the UC bundle for sw11. Before running this
+# MAGIC notebook you must **redeploy the bundle** so the new `landing/files`
+# MAGIC volume exists in your workspace. In the bundle UI, click **Deploy**
+# MAGIC once. Without this the first `dbutils.fs.mkdirs(INCOMING_DIR)` call
+# MAGIC will fail with a "volume does not exist" error.
 
 # COMMAND ----------
 
