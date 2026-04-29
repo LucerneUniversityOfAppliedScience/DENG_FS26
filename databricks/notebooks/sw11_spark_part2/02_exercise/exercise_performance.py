@@ -44,6 +44,8 @@ VENDOR_TABLE     = "workspace.nyc_taxi.vendor_list"
 GOLD_ZORDER      = "workspace.gold.taxi_trips_zordered"
 GOLD_CLUSTERED   = "workspace.gold.taxi_trips_clustered"
 
+NYC_PARQUET_DIR  = "/Volumes/workspace/nyc_taxi/raw_files"
+
 print(f"Trips    : {TRIPS_TABLE}")
 print(f"Vendors  : {VENDOR_TABLE}")
 print(f"Z-order  : {GOLD_ZORDER}")
@@ -53,7 +55,44 @@ print(f"Clustered: {GOLD_CLUSTERED}")
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Cleanup: drop existing tables
+# MAGIC ## Seed `trips_2025` from the Volume (one-time)
+# MAGIC
+# MAGIC On Free Edition the parquet files for the trips table are uploaded
+# MAGIC manually to `/Volumes/workspace/nyc_taxi/raw_files/` (the CloudFront
+# MAGIC URL is firewall-blocked — see the top-level README). The cell below
+# MAGIC materialises the trips Delta table from those parquet files **only if
+# MAGIC it does not exist yet**. If the parquet files are missing, the cell
+# MAGIC raises a clear error.
+
+# COMMAND ----------
+
+if spark.catalog.tableExists(TRIPS_TABLE):
+    n = spark.table(TRIPS_TABLE).count()
+    print(f"{TRIPS_TABLE} already exists ({n:,} rows). Skipping seed.")
+else:
+    print(f"{TRIPS_TABLE} not found — seeding from {NYC_PARQUET_DIR}")
+    files = sorted(
+        f.path for f in dbutils.fs.ls(NYC_PARQUET_DIR)
+        if f.name.endswith(".parquet")
+    )
+    if not files:
+        raise FileNotFoundError(
+            f"No parquet files in {NYC_PARQUET_DIR}. "
+            "Upload yellow_tripdata_2025-MM.parquet files into the volume first "
+            "(see the top-level README — Databricks Free Edition blocks the upstream URL)."
+        )
+    (spark.read.parquet(*files)
+        .write.mode("overwrite")
+        .saveAsTable(TRIPS_TABLE))
+    print(f"Seeded {spark.table(TRIPS_TABLE).count():,} rows into {TRIPS_TABLE}.")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ---
+# MAGIC ## Cleanup: drop existing gold tables
+# MAGIC
+# MAGIC We do NOT drop `trips_2025` itself — that's our source data.
 
 # COMMAND ----------
 
