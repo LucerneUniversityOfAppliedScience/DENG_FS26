@@ -37,6 +37,22 @@ TABLE_AGG    = f"{CATALOG}.{SCHEMA}.bs_population_by_country"
 
 # MAGIC %md
 # MAGIC ---
+# MAGIC ## Cleanup: drop existing tables
+# MAGIC
+# MAGIC Drop any existing tables before re-running so a stale schema from a previous
+# MAGIC run does not block the overwrite (Delta refuses schema changes on `overwrite`
+# MAGIC when Table ACLs are enabled).
+
+# COMMAND ----------
+
+for table in [TABLE_POP, TABLE_AGG]:
+    spark.sql(f"DROP TABLE IF EXISTS {table}")
+    print(f"Dropped (if existed): {table}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ---
 # MAGIC ## Task 1 – Read the Parquet File
 
 # COMMAND ----------

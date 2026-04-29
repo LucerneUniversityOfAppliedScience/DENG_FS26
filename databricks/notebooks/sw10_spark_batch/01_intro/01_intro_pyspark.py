@@ -58,6 +58,22 @@ print(f"Parquet : {PARQUET_PATH}")
 
 # MAGIC %md
 # MAGIC ---
+# MAGIC ## Cleanup: drop existing tables
+# MAGIC
+# MAGIC Drop any existing tables before re-running so a stale schema from a previous
+# MAGIC run does not block the overwrite (Delta refuses schema changes on `overwrite`
+# MAGIC when Table ACLs are enabled).
+
+# COMMAND ----------
+
+for table in [TABLE_CITIES, TABLE_EU]:
+    spark.sql(f"DROP TABLE IF EXISTS {table}")
+    print(f"Dropped (if existed): {table}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ---
 # MAGIC ## 1 – Create a DataFrame from Scratch
 # MAGIC
 # MAGIC Similar to Pandas, you can build a Spark DataFrame from a Python dictionary.

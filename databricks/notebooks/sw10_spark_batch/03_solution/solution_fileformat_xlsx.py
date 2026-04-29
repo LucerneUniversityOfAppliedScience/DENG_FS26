@@ -25,6 +25,27 @@ print(f"XLSX file: {XLSX_PATH}")
 
 # MAGIC %md
 # MAGIC ---
+# MAGIC ## Cleanup: drop existing tables
+# MAGIC
+# MAGIC Drop any existing Bronze/Silver tables before re-running so a stale schema
+# MAGIC from a previous run does not block the overwrite (Delta refuses schema
+# MAGIC changes on `overwrite` when Table ACLs are enabled).
+
+# COMMAND ----------
+
+for table in [
+    "workspace.bronze.financials_budget",
+    "workspace.bronze.financials_sales",
+    "workspace.silver.financials_budget",
+    "workspace.silver.financials_sales",
+]:
+    spark.sql(f"DROP TABLE IF EXISTS {table}")
+    print(f"Dropped (if existed): {table}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ---
 # MAGIC ## Step 1: Read both sheets into Bronze
 # MAGIC
 # MAGIC `pd.read_excel` can read one sheet at a time. We create one pandas DataFrame

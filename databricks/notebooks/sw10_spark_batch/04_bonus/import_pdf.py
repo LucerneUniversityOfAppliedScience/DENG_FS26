@@ -448,6 +448,17 @@ if pdf_data['tables']:
 
 # COMMAND ----------
 
+# Drop any existing tables from a previous run so a stale schema does not block
+# the overwrite (Delta refuses schema changes on `overwrite` when Table ACLs are
+# enabled, and overwriteSchema=true is rejected on those clusters too).
+for section_name, df in tables_by_section.items():
+    if df is not None:
+        table_name = f"{schema_name}.pdf_employee_data_{section_name}"
+        spark.sql(f"DROP TABLE IF EXISTS {table_name}")
+        print(f"Dropped (if existed): {table_name}")
+
+# COMMAND ----------
+
 # Save each table to its own Delta table
 saved_tables = []
 
@@ -455,7 +466,7 @@ for section_name, df in tables_by_section.items():
     if df is not None:
         # Create table name
         table_name = f"{schema_name}.pdf_employee_data_{section_name}"
-        
+
         try:
             # Save DataFrame with schema overwrite to handle schema changes
             df.write \
