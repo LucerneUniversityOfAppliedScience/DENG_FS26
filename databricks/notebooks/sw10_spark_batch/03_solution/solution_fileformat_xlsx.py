@@ -14,6 +14,8 @@
 
 # COMMAND ----------
 
+import re
+
 import pandas as pd
 
 XLSX_PATH = "/Volumes/workspace/raw/sample_data/xlsx/FinancialsSampleData.xlsx"
@@ -46,6 +48,12 @@ print(f"Financials2: {df_sales.count()} rows")
 df_sales.printSchema()
 
 # COMMAND ----------
+
+def clean_cols(df):
+    return df.toDF(*[re.sub(r"[ ,;{}()\n\t=]", "_", c) for c in df.columns])
+
+df_budget = clean_cols(df_budget)
+df_sales = clean_cols(df_sales)
 
 df_budget.write.mode("overwrite").saveAsTable("workspace.bronze.financials_budget")
 df_sales.write.mode("overwrite").saveAsTable("workspace.bronze.financials_sales")
@@ -87,7 +95,7 @@ from pyspark.sql.functions import col, try_cast
 
 # Silver: Budget table — fix column name typo, ensure numeric types for months
 df_budget_silver = (spark.table("workspace.bronze.financials_budget")
-    .withColumnRenamed("Businees Unit", "business_unit")
+    .withColumnRenamed("Businees_Unit", "business_unit")
     .withColumnRenamed("Account", "account")
     .withColumnRenamed("Currency", "currency")
     .withColumnRenamed("Year", "year")
@@ -114,18 +122,18 @@ df_sales_silver = (spark.table("workspace.bronze.financials_sales")
     .withColumnRenamed("Segment", "segment")
     .withColumnRenamed("Country", "country")
     .withColumnRenamed("Product", "product")
-    .withColumnRenamed("Discount Band", "discount_band")
-    .withColumn("units_sold", try_cast(col("Units Sold"), "double")).drop("Units Sold")
-    .withColumn("manufacturing_price", try_cast(col("Manufacturing Price"), "double")).drop("Manufacturing Price")
-    .withColumn("sale_price", try_cast(col("Sale Price"), "double")).drop("Sale Price")
-    .withColumn("gross_sales", try_cast(col("Gross Sales"), "double")).drop("Gross Sales")
+    .withColumnRenamed("Discount_Band", "discount_band")
+    .withColumn("units_sold", try_cast(col("Units_Sold"), "double")).drop("Units_Sold")
+    .withColumn("manufacturing_price", try_cast(col("Manufacturing_Price"), "double")).drop("Manufacturing_Price")
+    .withColumn("sale_price", try_cast(col("Sale_Price"), "double")).drop("Sale_Price")
+    .withColumn("gross_sales", try_cast(col("Gross_Sales"), "double")).drop("Gross_Sales")
     .withColumn("discounts", try_cast(col("Discounts"), "double")).drop("Discounts")
-    .withColumn("sales", try_cast(col(" Sales"), "double")).drop(" Sales")
+    .withColumn("sales", try_cast(col("_Sales"), "double")).drop("_Sales")
     .withColumn("cogs", try_cast(col("COGS"), "double")).drop("COGS")
     .withColumn("profit", try_cast(col("Profit"), "double")).drop("Profit")
     .withColumnRenamed("Date", "date")
-    .withColumn("month_number", try_cast(col("Month Number"), "int")).drop("Month Number")
-    .withColumnRenamed("Month Name", "month_name")
+    .withColumn("month_number", try_cast(col("Month_Number"), "int")).drop("Month_Number")
+    .withColumnRenamed("Month_Name", "month_name")
     .withColumn("year", try_cast(col("Year"), "int")).drop("Year")
 )
 
