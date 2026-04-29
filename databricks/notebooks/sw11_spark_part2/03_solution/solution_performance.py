@@ -83,65 +83,106 @@ for table in [GOLD_ZORDER, GOLD_CLUSTERED]:
 # MAGIC | `ShuffledHashJoin` | Small side hashable, large side too big to broadcast | One shuffle |
 # MAGIC | `SortMergeJoin` | Both sides are large | Two shuffles + sorts |
 # MAGIC
-# MAGIC We start with a join that Spark refuses to broadcast (we artificially
-# MAGIC raise the threshold above the lookup size), so it falls back to
-# MAGIC `SortMergeJoin`.
+# MAGIC ### Free Edition Serverless note
+# MAGIC
+# MAGIC On Free Edition Serverless many session-level Spark configs are
+# MAGIC **read-only** — including `spark.sql.autoBroadcastJoinThreshold` and
+# MAGIC `spark.sql.adaptive.enabled`. Trying to call `spark.conf.set(...)` on
+# MAGIC those keys raises `[CONFIG_NOT_AVAILABLE]`. Instead we use **SQL join
+# MAGIC hints**, which are per-query and always allowed:
+# MAGIC
+# MAGIC - `/*+ MERGE(table) */` — force SortMergeJoin
+# MAGIC - `/*+ BROADCAST(table) */` — force BroadcastHashJoin
+# MAGIC - `/*+ SHUFFLE_HASH(table) */` — force ShuffledHashJoin
+# MAGIC
+# MAGIC We let Spark pick the default plan first, then force each strategy via
+# MAGIC hint and compare.
 
 # COMMAND ----------
-
-# Force SortMergeJoin by disabling autobroadcast.
-spark.conf.set("spark.sql.autoBroadcastJoinThreshold", -1)
 
 df_trips   = spark.table(TRIPS_TABLE)
 df_vendors = spark.table(VENDOR_TABLE)
 
+# Default plan — Spark decides. With a 7-row vendor lookup it will almost
+# certainly auto-broadcast.
 df_joined = df_trips.join(df_vendors, "VendorID", "left")
+print("=== DEFAULT PLAN ===")
 df_joined.explain()
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC In the printed plan you should see `SortMergeJoin` with both sides going
-# MAGIC through `Exchange hashpartitioning(VendorID, ...)` — that's the shuffle.
-# MAGIC On a 30M-row trips table this shuffle is the dominant cost.
+# MAGIC The default plan most likely shows `BroadcastHashJoin` because the
+# MAGIC vendor lookup is well below the 10 MB auto-broadcast threshold. Now
+# MAGIC force a SortMergeJoin via SQL hint to see the alternative.
+
+# COMMAND ----------
+
+print("=== FORCED SortMergeJoin via /*+ MERGE */ hint ===")
+spark.sql(f"""
+    SELECT /*+ MERGE(v) */
+           t.VendorID,
+           v.VendorName,
+           t.fare_amount
+    FROM {TRIPS_TABLE} t
+    LEFT JOIN {VENDOR_TABLE} v ON t.VendorID = v.VendorID
+""").explain()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC In this plan you should see `SortMergeJoin` with both sides going
+# MAGIC through `Exchange hashpartitioning(VendorID, ...)` — that's the shuffle
+# MAGIC SortMergeJoin requires. On a 30M-row trips table this shuffle would be
+# MAGIC the dominant cost — exactly why Spark prefers broadcast for tiny
+# MAGIC lookups.
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 2: Broadcast join
+# MAGIC ## Step 2: Broadcast join — explicit
 # MAGIC
-# MAGIC The `vendor_list` lookup has 7 rows. Broadcasting it to every executor
-# MAGIC eliminates the shuffle entirely. There are two ways to force a broadcast:
+# MAGIC Two equivalent ways to force a broadcast:
 # MAGIC
-# MAGIC 1. **Hint via `F.broadcast(...)`** — explicit, scoped to one query
-# MAGIC 2. **Raise `autoBroadcastJoinThreshold`** — global, applies to any small
-# MAGIC    enough table
+# MAGIC 1. **Python:** wrap the small side with `F.broadcast(...)` — explicit,
+# MAGIC    scoped to one DataFrame query
+# MAGIC 2. **SQL hint:** `/*+ BROADCAST(table) */` — same effect, scoped to one
+# MAGIC    query
 # MAGIC
-# MAGIC The hint is the cleaner choice when you know which side should be
-# MAGIC broadcast.
+# MAGIC Both produce a `BroadcastHashJoin` regardless of the autobroadcast
+# MAGIC threshold. Useful when the auto-detection is wrong, e.g. when the small
+# MAGIC side is the result of a filter and Spark doesn't know its post-filter
+# MAGIC size.
 
 # COMMAND ----------
 
 from pyspark.sql.functions import broadcast
 
+# Python API: F.broadcast() hint
 df_joined_bcast = df_trips.join(broadcast(df_vendors), "VendorID", "left")
+print("=== EXPLICIT BROADCAST via F.broadcast() ===")
 df_joined_bcast.explain()
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC The plan now contains `BroadcastHashJoin` with `BroadcastExchange` feeding
-# MAGIC the small side. No shuffle on the large side. This is almost always the
-# MAGIC fastest option when one side is small enough.
-# MAGIC
-# MAGIC Re-enable autobroadcast for the rest of the notebook (so we don't fight
-# MAGIC the optimiser elsewhere):
+# SQL: /*+ BROADCAST */ hint — same effect
+print("=== EXPLICIT BROADCAST via SQL hint ===")
+spark.sql(f"""
+    SELECT /*+ BROADCAST(v) */
+           t.VendorID,
+           v.VendorName,
+           t.fare_amount
+    FROM {TRIPS_TABLE} t
+    LEFT JOIN {VENDOR_TABLE} v ON t.VendorID = v.VendorID
+""").explain()
 
 # COMMAND ----------
 
-spark.conf.set("spark.sql.autoBroadcastJoinThreshold", 10 * 1024 * 1024)  # 10 MB default
-print("autoBroadcastJoinThreshold:", spark.conf.get("spark.sql.autoBroadcastJoinThreshold"))
+# MAGIC %md
+# MAGIC Both plans contain `BroadcastHashJoin` with a `BroadcastExchange`
+# MAGIC feeding the small side. No shuffle on the large side. When in doubt
+# MAGIC about Spark's automatic choice, the hint removes ambiguity.
 
 # COMMAND ----------
 
@@ -150,16 +191,19 @@ print("autoBroadcastJoinThreshold:", spark.conf.get("spark.sql.autoBroadcastJoin
 # MAGIC ## Step 3: Adaptive Query Execution (AQE)
 # MAGIC
 # MAGIC AQE re-plans the query at runtime based on actual statistics. The three
-# MAGIC headline features are:
+# MAGIC headline features:
 # MAGIC
 # MAGIC - **Coalesce shuffle partitions** — combines tiny post-shuffle partitions
 # MAGIC - **Switch join strategy** — converts SortMergeJoin to BroadcastHashJoin
-# MAGIC   if a runtime statistic shows one side is small after filtering
+# MAGIC   when a runtime statistic shows one side is small after filtering
 # MAGIC - **Skew join handling** — splits one giant partition across multiple
 # MAGIC   tasks
 # MAGIC
-# MAGIC AQE is on by default in modern Databricks runtimes. Toggle it off and
-# MAGIC observe the plan difference on a query whose filter shrinks one side.
+# MAGIC AQE is **on by default and not user-toggleable on Free Edition
+# MAGIC Serverless** — `spark.conf.set("spark.sql.adaptive.enabled", ...)`
+# MAGIC raises `[CONFIG_NOT_AVAILABLE]`. We can still see AQE in action by
+# MAGIC reading the explain output: any plan wrapped in `AdaptiveSparkPlan`
+# MAGIC will be re-optimised at runtime.
 
 # COMMAND ----------
 
@@ -168,25 +212,20 @@ aqe_query = (df_trips
     .groupBy("VendorID")
     .count())
 
-# AQE off
-spark.conf.set("spark.sql.adaptive.enabled", False)
-print("=== AQE OFF ===")
-aqe_query.explain()
-
-# AQE on
-spark.conf.set("spark.sql.adaptive.enabled", True)
-print("=== AQE ON ===")
+print("=== AQE plan markers ===")
 aqe_query.explain()
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC With AQE on you'll see `AdaptiveSparkPlan` wrapping the operators. The
-# MAGIC actual plan that runs is determined at runtime — the printed plan shows
-# MAGIC the initial plan plus markers indicating where AQE may intervene.
+# MAGIC Look for `AdaptiveSparkPlan isFinalPlan=false` near the top — that's
+# MAGIC the AQE wrapper. The printed plan shows the **initial** plan; the plan
+# MAGIC that actually runs may be different because AQE re-optimises after the
+# MAGIC first shuffle completes and real partition sizes are known.
 # MAGIC
-# MAGIC In production: leave AQE on. Turning it off is almost never the right
-# MAGIC answer.
+# MAGIC In production: leave AQE on. The few cases where it hurts (highly
+# MAGIC predictable workloads with no skew) are not worth the cognitive cost
+# MAGIC of remembering the toggle.
 
 # COMMAND ----------
 

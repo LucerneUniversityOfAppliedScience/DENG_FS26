@@ -76,35 +76,53 @@ for table in [GOLD_ZORDER, GOLD_CLUSTERED]:
 # MAGIC | `ShuffledHashJoin` | Small side hashable, large side too big to broadcast | One shuffle |
 # MAGIC | `SortMergeJoin` | Both sides are large | Two shuffles + sorts |
 # MAGIC
-# MAGIC **Task:** disable autobroadcast (set `spark.sql.autoBroadcastJoinThreshold`
-# MAGIC to `-1`), join `trips_2025` with `vendor_list` on `VendorID`, and call
-# MAGIC `.explain()` on the result. Confirm you see `SortMergeJoin`.
+# MAGIC ### Free Edition Serverless note
+# MAGIC
+# MAGIC On Free Edition Serverless `spark.sql.autoBroadcastJoinThreshold` and
+# MAGIC `spark.sql.adaptive.enabled` are **read-only** — `spark.conf.set(...)`
+# MAGIC raises `[CONFIG_NOT_AVAILABLE]`. Use **SQL join hints** instead, which
+# MAGIC are per-query and always allowed:
+# MAGIC
+# MAGIC - `/*+ MERGE(table) */` — force SortMergeJoin
+# MAGIC - `/*+ BROADCAST(table) */` — force BroadcastHashJoin
+# MAGIC - `/*+ SHUFFLE_HASH(table) */` — force ShuffledHashJoin
+# MAGIC
+# MAGIC **Task A:** join `trips_2025` with `vendor_list` on `VendorID` (default
+# MAGIC plan, no hint) and `.explain()`. Note which join Spark picks.
+# MAGIC
+# MAGIC **Task B:** force a SortMergeJoin via a `%sql` query with the
+# MAGIC `/*+ MERGE(v) */` hint. `.explain()` (use `EXPLAIN` in SQL) and
+# MAGIC confirm `SortMergeJoin` with the two `Exchange hashpartitioning`
+# MAGIC shuffles.
 
 # COMMAND ----------
 
 # YOUR CODE HERE
-raise NotImplementedError("Step 1: SortMergeJoin baseline")
+raise NotImplementedError("Step 1: default plan, then forced SortMergeJoin via /*+ MERGE */")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 2: Broadcast join
+# MAGIC ## Step 2: Broadcast join — explicit
 # MAGIC
-# MAGIC The `vendor_list` lookup has 7 rows. Broadcasting it eliminates the
-# MAGIC shuffle. Two ways to force a broadcast:
+# MAGIC Two equivalent ways to force a broadcast:
 # MAGIC
-# MAGIC 1. Hint via `F.broadcast(...)` — explicit, scoped to one query
-# MAGIC 2. Raise `autoBroadcastJoinThreshold` — global
+# MAGIC 1. **Python:** `F.broadcast(df_small)` in a join
+# MAGIC 2. **SQL:** `/*+ BROADCAST(table) */`
 # MAGIC
-# MAGIC **Task:** join again, this time wrapping `df_vendors` in `broadcast(...)`.
-# MAGIC `.explain()` should now show `BroadcastHashJoin`. Then re-enable
-# MAGIC autobroadcast at 10 MB so the rest of the notebook isn't crippled.
+# MAGIC Both produce `BroadcastHashJoin` regardless of the autobroadcast
+# MAGIC threshold. Useful when Spark's automatic choice is wrong (e.g. small
+# MAGIC side is the result of a filter Spark can't size accurately).
+# MAGIC
+# MAGIC **Task:** demonstrate both — Python via `F.broadcast(df_vendors)` and
+# MAGIC SQL via `/*+ BROADCAST(v) */`. `.explain()` both. Confirm
+# MAGIC `BroadcastHashJoin` with `BroadcastExchange` on the small side.
 
 # COMMAND ----------
 
 # YOUR CODE HERE
-raise NotImplementedError("Step 2: broadcast join")
+raise NotImplementedError("Step 2: explicit broadcast via Python F.broadcast and SQL /*+ BROADCAST */")
 
 # COMMAND ----------
 
@@ -119,15 +137,18 @@ raise NotImplementedError("Step 2: broadcast join")
 # MAGIC   if a runtime statistic shows one side is small after filtering
 # MAGIC - **Skew join handling** — splits one giant partition across multiple tasks
 # MAGIC
+# MAGIC AQE is **on by default and not user-toggleable on Free Edition
+# MAGIC Serverless**. We can still see AQE markers in the plan.
+# MAGIC
 # MAGIC **Task:** define a query with a very selective filter (e.g.
-# MAGIC `trip_distance > 100`), aggregate by `VendorID`, then `.explain()` once
-# MAGIC with AQE off and once with AQE on. Compare the printed plans — the AQE-on
-# MAGIC plan is wrapped in `AdaptiveSparkPlan`.
+# MAGIC `trip_distance > 100`), aggregate by `VendorID`, then `.explain()`.
+# MAGIC Look for `AdaptiveSparkPlan` near the top of the plan — that's the
+# MAGIC AQE wrapper.
 
 # COMMAND ----------
 
 # YOUR CODE HERE
-raise NotImplementedError("Step 3: AQE on/off comparison")
+raise NotImplementedError("Step 3: explain a filtered aggregation, observe the AdaptiveSparkPlan wrapper")
 
 # COMMAND ----------
 
