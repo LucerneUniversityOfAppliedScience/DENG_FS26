@@ -232,7 +232,38 @@ display(dbutils.fs.ls(CHECKPOINT_LOC))
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 5: Drop more files and re-run incrementally
+# MAGIC ## Step 5: Re-run without new files — the idempotency proof
+# MAGIC
+# MAGIC Before we drop any new files, run Auto Loader **again** against the
+# MAGIC same `incoming/` folder. Nothing has changed since the last run, so
+# MAGIC nothing should be ingested.
+# MAGIC
+# MAGIC This is the most direct demonstration of what the checkpoint does:
+# MAGIC every file from batch v1 is already recorded as committed, so Auto
+# MAGIC Loader skips them all. The Bronze row count stays at 7 — no
+# MAGIC duplication.
+# MAGIC
+# MAGIC In a hand-rolled tracker pattern this is exactly the case that goes
+# MAGIC wrong most often (re-loading the same file because the tracker was
+# MAGIC out of sync). Auto Loader gets it right by construction.
+
+# COMMAND ----------
+
+run_autoloader()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC `Bronze rows: 7 -> 7  (added: 0)` — exactly what we want. The query
+# MAGIC went through, Spark started the stream, but the Auto Loader source
+# MAGIC reported "no new files since last commit" and the stream stopped
+# MAGIC immediately. Zero rows ingested, zero duplicates.
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ---
+# MAGIC ## Step 6: Drop more files and re-run incrementally
 # MAGIC
 # MAGIC Add two new CSV files to `incoming/`. Then re-run the same Auto Loader
 # MAGIC block. Only the **new** files are picked up — this is the headline
@@ -267,7 +298,7 @@ run_autoloader()
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 6: Schema evolution
+# MAGIC ## Step 7: Schema evolution
 # MAGIC
 # MAGIC Drop a third batch with a new column `phone_code`. Auto Loader notices
 # MAGIC the schema change and reacts according to `cloudFiles.schemaEvolutionMode`:
@@ -322,7 +353,7 @@ display(spark.table(BRONZE_TABLE).orderBy("_load_ts"))
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 7: `cleanSource` — file lifecycle management
+# MAGIC ## Step 8: `cleanSource` — file lifecycle management
 # MAGIC
 # MAGIC In production, landing folders accumulate millions of files. Directory
 # MAGIC listing slows to a crawl, billing creeps up, and people resort to
@@ -424,7 +455,7 @@ except Exception:
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 8: Verify the Bronze table
+# MAGIC ## Step 9: Verify the Bronze table
 # MAGIC
 # MAGIC Two queries that show the full picture: total rows, and rows attributed
 # MAGIC to each source file. The lineage columns (`_load_file`, `_load_ts`)
