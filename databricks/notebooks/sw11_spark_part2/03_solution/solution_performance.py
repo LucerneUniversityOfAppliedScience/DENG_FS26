@@ -56,41 +56,87 @@ print(f"Clustered: {GOLD_CLUSTERED}")
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Seed `trips_2025` from the Volume (one-time)
+# MAGIC ## Seed `trips_2025` (one-time)
 # MAGIC
 # MAGIC The performance notebook joins `trips_2025` with the small `vendor_list`
-# MAGIC lookup. On Free Edition the parquet files for the trips table are
-# MAGIC uploaded manually to `/Volumes/workspace/nyc_taxi/raw_files/` (the
-# MAGIC CloudFront URL is firewall-blocked — see the top-level README).
+# MAGIC lookup. The cell below materialises the trips Delta table **only if it
+# MAGIC does not exist yet**, with a three-tier fallback so it always succeeds:
 # MAGIC
-# MAGIC The cell below materialises the trips Delta table from those parquet
-# MAGIC files **only if it does not exist yet**. Subsequent notebook runs skip
-# MAGIC the seed and read the existing table. If the parquet files are missing,
-# MAGIC the cell raises a clear error pointing to the README.
+# MAGIC 1. Table already exists → skip
+# MAGIC 2. Real NYC parquet files in `/Volumes/workspace/nyc_taxi/raw_files/`
+# MAGIC    (manually uploaded — CloudFront is firewall-blocked on Free Edition)
+# MAGIC    → use them
+# MAGIC 3. Otherwise → generate 2,000,000 rows of **synthetic** NYC-shaped data
+# MAGIC    with realistic distributions (uniform `VendorID` 1–7, 263 NYC zones,
+# MAGIC    99% short trips with a thin tail above 100 miles)
+# MAGIC
+# MAGIC Synthetic data is more than enough to demonstrate join strategies,
+# MAGIC AQE markers, caching effects, and Z-order data skipping. Real data is
+# MAGIC preferred when available because the actual `PULocationID`
+# MAGIC distribution is heavily skewed toward Manhattan and that makes Z-order
+# MAGIC visibly better — the synthetic uniform distribution still works, just
+# MAGIC less dramatically.
 
 # COMMAND ----------
+
+from pyspark.sql.functions import expr
+
+def _generate_synthetic_trips(n_rows: int):
+    """2M rows by default — adjust if you want bigger plans / more dramatic effects."""
+    seconds_in_year = 365 * 24 * 3600
+    return (spark.range(n_rows)
+        .withColumn("VendorID",        (expr("rand(42) * 7") + 1).cast("int"))
+        .withColumn("PULocationID",    (expr("rand(43) * 263") + 1).cast("int"))
+        .withColumn("DOLocationID",    (expr("rand(44) * 263") + 1).cast("int"))
+        .withColumn("passenger_count", (expr("rand(45) * 4") + 1).cast("int"))
+        # 99% of trips ≤ 30 miles, 1% in [100, 180] for a meaningful AQE filter on > 100
+        .withColumn("trip_distance",
+            expr("CASE WHEN rand(46) < 0.99 THEN round(rand(47) * 30, 2) "
+                 "ELSE round(rand(48) * 80 + 100, 2) END"))
+        .withColumn("fare_amount",     expr("round(2.5 + trip_distance * 2.5 + rand(49) * 5, 2)"))
+        .withColumn("tip_amount",      expr("round(rand(50) * fare_amount * 0.25, 2)"))
+        .withColumn("total_amount",    expr("round(fare_amount + tip_amount + 3.5, 2)"))
+        .withColumn("payment_type",    expr("cast(rand(51) * 6 as int)"))
+        .withColumn("RatecodeID",
+            expr("CASE WHEN rand(52) < 0.95 THEN 1 "
+                 "WHEN rand(53) < 0.5 THEN 2 ELSE 99 END"))
+        .withColumn("tpep_pickup_datetime",
+            expr(f"timestamp_seconds(unix_timestamp(timestamp '2025-01-01 00:00:00') "
+                 f"+ cast(rand(54) * {seconds_in_year} as bigint))"))
+        # ~4 minutes per mile (rough NYC pace)
+        .withColumn("tpep_dropoff_datetime",
+            expr("timestamp_seconds(unix_timestamp(tpep_pickup_datetime) "
+                 "+ cast(trip_distance * 240 as bigint))"))
+        .drop("id"))
 
 if spark.catalog.tableExists(TRIPS_TABLE):
     n = spark.table(TRIPS_TABLE).count()
     print(f"{TRIPS_TABLE} already exists ({n:,} rows). Skipping seed.")
 else:
-    print(f"{TRIPS_TABLE} not found — seeding from {NYC_PARQUET_DIR}")
-    files = sorted(
-        f.path for f in dbutils.fs.ls(NYC_PARQUET_DIR)
-        if f.name.endswith(".parquet")
-    )
-    if not files:
-        raise FileNotFoundError(
-            f"No parquet files in {NYC_PARQUET_DIR}. "
-            "Upload yellow_tripdata_2025-MM.parquet files into the volume first "
-            "(see the top-level README — Databricks Free Edition blocks the upstream URL)."
+    print(f"{TRIPS_TABLE} not found — seeding.")
+    parquet_files = []
+    try:
+        parquet_files = sorted(
+            f.path for f in dbutils.fs.ls(NYC_PARQUET_DIR)
+            if f.name.endswith(".parquet")
         )
-    print(f"Reading {len(files)} parquet file(s):")
-    for f in files:
-        print(f"  - {f}")
-    (spark.read.parquet(*files)
-        .write.mode("overwrite")
-        .saveAsTable(TRIPS_TABLE))
+    except Exception:
+        # Volume may not exist yet, or be empty — fall through to synthetic.
+        pass
+
+    if parquet_files:
+        print(f"Loading {len(parquet_files)} real parquet file(s) from {NYC_PARQUET_DIR}.")
+        for f in parquet_files:
+            print(f"  - {f}")
+        (spark.read.parquet(*parquet_files)
+            .write.mode("overwrite")
+            .saveAsTable(TRIPS_TABLE))
+    else:
+        print(f"No parquet files in {NYC_PARQUET_DIR} — generating 2,000,000 synthetic rows.")
+        (_generate_synthetic_trips(2_000_000)
+            .write.mode("overwrite")
+            .saveAsTable(TRIPS_TABLE))
+
     print(f"Seeded {spark.table(TRIPS_TABLE).count():,} rows into {TRIPS_TABLE}.")
 
 # COMMAND ----------
