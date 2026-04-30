@@ -40,6 +40,11 @@ resources:
       catalog_name: ${var.catalog_name}
       comment: "NYC Taxi trip data and reference tables"
 
+    meta_schema:
+      name: meta
+      catalog_name: ${var.catalog_name}
+      comment: "Pipeline metadata: HWMs, CDF state, ingest bookkeeping"
+
   volumes:
     sample_data_volume:
       name: sample_data
