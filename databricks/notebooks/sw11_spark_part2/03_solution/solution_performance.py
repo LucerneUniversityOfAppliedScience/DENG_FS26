@@ -3,32 +3,33 @@
 # MAGIC %md
 # MAGIC # Performance and Optimization — Solution
 # MAGIC
-# MAGIC In this notebook you learn how to read **Spark physical plans**, control
-# MAGIC the **join strategy**, decide between **caching strategies**, and improve
-# MAGIC **read performance** with Z-Order or Liquid Clustering.
+# MAGIC In this notebook you learn how to control Spark's **join strategy**,
+# MAGIC choose between **caching strategies**, and improve **read performance**
+# MAGIC with Z-Order or Liquid Clustering — by **measuring the time impact** of
+# MAGIC each technique.
 # MAGIC
 # MAGIC ## Why this matters
 # MAGIC
 # MAGIC Most Spark code that "works" can be made 5–50× faster by tuning a handful
 # MAGIC of decisions: which join algorithm, when to broadcast a small side, when
-# MAGIC to cache, and how the data is laid out on disk. The single most important
-# MAGIC habit is reading the physical plan via `.explain()` — without it you are
-# MAGIC guessing.
+# MAGIC to cache, and how the data is laid out on disk. Reading a physical plan
+# MAGIC (`.explain()`) tells you **why** something is slow; running with
+# MAGIC `time.perf_counter()` tells you **how slow** in seconds. We do both —
+# MAGIC measurement first so you see the impact, then the plan to explain it.
 # MAGIC
 # MAGIC ## Free Edition note
 # MAGIC
-# MAGIC Databricks Free Edition runs on Serverless and has **limited Spark UI
-# MAGIC access**. Instead of taking screenshots from the UI we measure with
-# MAGIC `time.perf_counter()` and read `.explain()` output directly. Liquid
-# MAGIC Clustering may not be enabled on every Free Edition workspace — the
-# MAGIC notebook flags this and continues if so.
+# MAGIC On Databricks Free Edition Serverless, several Spark configs are
+# MAGIC **read-only** (e.g. `spark.sql.autoBroadcastJoinThreshold`,
+# MAGIC `spark.sql.adaptive.enabled`) and the `unpersist()` API is rejected.
+# MAGIC The notebook works around all of these and notes them where they bite.
 # MAGIC
 # MAGIC ## Dataset
 # MAGIC
-# MAGIC `workspace.nyc_taxi.trips_2025` (12 months of yellow taxi trips, manually
-# MAGIC pre-staged on Free Edition because the upstream CloudFront URL is blocked
-# MAGIC by the egress firewall) joined with the small `vendor_list` lookup created
-# MAGIC by `copy_sample_data.py`.
+# MAGIC `workspace.nyc_taxi.trips_2025` joined with the small `vendor_list`
+# MAGIC lookup. The seed cell below materialises the trips table from real
+# MAGIC parquet files if uploaded, otherwise generates 2M rows of synthetic
+# MAGIC NYC-shaped data — sufficient for every measurement in this notebook.
 # MAGIC
 # MAGIC ## Before you run
 # MAGIC
@@ -58,24 +59,14 @@ print(f"Clustered: {GOLD_CLUSTERED}")
 # MAGIC ---
 # MAGIC ## Seed `trips_2025` (one-time)
 # MAGIC
-# MAGIC The performance notebook joins `trips_2025` with the small `vendor_list`
-# MAGIC lookup. The cell below materialises the trips Delta table **only if it
-# MAGIC does not exist yet**, with a three-tier fallback so it always succeeds:
+# MAGIC The cell below materialises the trips Delta table **only if it does not
+# MAGIC exist yet**, with a three-tier fallback:
 # MAGIC
 # MAGIC 1. Table already exists → skip
 # MAGIC 2. Real NYC parquet files in `/Volumes/workspace/nyc_taxi/raw_files/`
 # MAGIC    (manually uploaded — CloudFront is firewall-blocked on Free Edition)
 # MAGIC    → use them
 # MAGIC 3. Otherwise → generate 2,000,000 rows of **synthetic** NYC-shaped data
-# MAGIC    with realistic distributions (uniform `VendorID` 1–7, 263 NYC zones,
-# MAGIC    99% short trips with a thin tail above 100 miles)
-# MAGIC
-# MAGIC Synthetic data is more than enough to demonstrate join strategies,
-# MAGIC AQE markers, caching effects, and Z-order data skipping. Real data is
-# MAGIC preferred when available because the actual `PULocationID`
-# MAGIC distribution is heavily skewed toward Manhattan and that makes Z-order
-# MAGIC visibly better — the synthetic uniform distribution still works, just
-# MAGIC less dramatically.
 
 # COMMAND ----------
 
@@ -89,7 +80,6 @@ def _generate_synthetic_trips(n_rows: int):
         .withColumn("PULocationID",    (expr("rand(43) * 263") + 1).cast("int"))
         .withColumn("DOLocationID",    (expr("rand(44) * 263") + 1).cast("int"))
         .withColumn("passenger_count", (expr("rand(45) * 4") + 1).cast("int"))
-        # 99% of trips ≤ 30 miles, 1% in [100, 180] for a meaningful AQE filter on > 100
         .withColumn("trip_distance",
             expr("CASE WHEN rand(46) < 0.99 THEN round(rand(47) * 30, 2) "
                  "ELSE round(rand(48) * 80 + 100, 2) END"))
@@ -103,7 +93,6 @@ def _generate_synthetic_trips(n_rows: int):
         .withColumn("tpep_pickup_datetime",
             expr(f"timestamp_seconds(unix_timestamp(timestamp '2025-01-01 00:00:00') "
                  f"+ cast(rand(54) * {seconds_in_year} as bigint))"))
-        # ~4 minutes per mile (rough NYC pace)
         .withColumn("tpep_dropoff_datetime",
             expr("timestamp_seconds(unix_timestamp(tpep_pickup_datetime) "
                  "+ cast(trip_distance * 240 as bigint))"))
@@ -121,13 +110,10 @@ else:
             if f.name.endswith(".parquet")
         )
     except Exception:
-        # Volume may not exist yet, or be empty — fall through to synthetic.
         pass
 
     if parquet_files:
         print(f"Loading {len(parquet_files)} real parquet file(s) from {NYC_PARQUET_DIR}.")
-        for f in parquet_files:
-            print(f"  - {f}")
         (spark.read.parquet(*parquet_files)
             .write.mode("overwrite")
             .saveAsTable(TRIPS_TABLE))
@@ -145,9 +131,8 @@ else:
 # MAGIC ---
 # MAGIC ## Cleanup: drop existing gold tables
 # MAGIC
-# MAGIC Drop the two gold copies before re-running so a stale schema does not
-# MAGIC block the overwrite. We do NOT drop `trips_2025` itself — that's our
-# MAGIC source data.
+# MAGIC Drop the two gold copies before re-running. We do NOT drop `trips_2025`
+# MAGIC itself — that's our source data.
 
 # COMMAND ----------
 
@@ -159,13 +144,42 @@ for table in [GOLD_ZORDER, GOLD_CLUSTERED]:
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 1: Reading a physical plan — the baseline join
+# MAGIC ## Timing helper
 # MAGIC
-# MAGIC Every Spark query goes through three plan stages: parsed → analysed →
-# MAGIC optimised → physical. `.explain()` prints the **physical plan** that
-# MAGIC actually runs.
+# MAGIC We measure every variant with the same helper. `.count()` is a cheap
+# MAGIC action that forces the **entire DAG** to execute (including any join,
+# MAGIC group-by, or shuffle), and returns a verifiable scalar.
 # MAGIC
-# MAGIC The first thing to look at is the join operator. Spark picks one of:
+# MAGIC The optional `warmup` first runs the query once and discards the
+# MAGIC result. Cold-cache effects (executor JIT warm-up, Delta metadata
+# MAGIC fetch) can otherwise dominate the first measurement and hide the real
+# MAGIC difference.
+
+# COMMAND ----------
+
+import time
+
+def time_query(label, query, warmup=False):
+    """Time a Spark action. `query` may be a SQL string or a DataFrame."""
+    if isinstance(query, str):
+        run = lambda: spark.sql(query).count()
+    else:
+        run = lambda: query.count()
+    if warmup:
+        run()  # discard result
+    t0 = time.perf_counter()
+    n = run()
+    elapsed = time.perf_counter() - t0
+    print(f"{label:50s} {elapsed:6.2f}s   (rows: {n:,})")
+    return elapsed
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ---
+# MAGIC ## Step 1: Join strategies — measure first, explain second
+# MAGIC
+# MAGIC Spark picks one of three join algorithms:
 # MAGIC
 # MAGIC | Operator | When chosen | Cost |
 # MAGIC |---|---|---|
@@ -173,158 +187,137 @@ for table in [GOLD_ZORDER, GOLD_CLUSTERED]:
 # MAGIC | `ShuffledHashJoin` | Small side hashable, large side too big to broadcast | One shuffle |
 # MAGIC | `SortMergeJoin` | Both sides are large | Two shuffles + sorts |
 # MAGIC
-# MAGIC ### Free Edition Serverless note
+# MAGIC On Free Edition Serverless we can't toggle
+# MAGIC `spark.sql.autoBroadcastJoinThreshold` (the config is read-only —
+# MAGIC `spark.conf.set` raises `[CONFIG_NOT_AVAILABLE]`). Instead we use
+# MAGIC **SQL join hints**, which are per-query and always allowed:
 # MAGIC
-# MAGIC On Free Edition Serverless many session-level Spark configs are
-# MAGIC **read-only** — including `spark.sql.autoBroadcastJoinThreshold` and
-# MAGIC `spark.sql.adaptive.enabled`. Trying to call `spark.conf.set(...)` on
-# MAGIC those keys raises `[CONFIG_NOT_AVAILABLE]`. Instead we use **SQL join
-# MAGIC hints**, which are per-query and always allowed:
+# MAGIC - `/*+ MERGE(table) */` — force `SortMergeJoin`
+# MAGIC - `/*+ BROADCAST(table) */` — force `BroadcastHashJoin`
+# MAGIC - `/*+ SHUFFLE_HASH(table) */` — force `ShuffledHashJoin`
 # MAGIC
-# MAGIC - `/*+ MERGE(table) */` — force SortMergeJoin
-# MAGIC - `/*+ BROADCAST(table) */` — force BroadcastHashJoin
-# MAGIC - `/*+ SHUFFLE_HASH(table) */` — force ShuffledHashJoin
-# MAGIC
-# MAGIC We let Spark pick the default plan first, then force each strategy via
-# MAGIC hint and compare.
+# MAGIC We run the same join three ways, **time** each, then look at the plan
+# MAGIC of the slow one to see why.
 
 # COMMAND ----------
 
-df_trips   = spark.table(TRIPS_TABLE)
-df_vendors = spark.table(VENDOR_TABLE)
-
-# Default plan — Spark decides. With a 7-row vendor lookup it will almost
-# certainly auto-broadcast.
-df_joined = df_trips.join(df_vendors, "VendorID", "left")
-print("=== DEFAULT PLAN ===")
-df_joined.explain()
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC The default plan most likely shows `BroadcastHashJoin` because the
-# MAGIC vendor lookup is well below the 10 MB auto-broadcast threshold. Now
-# MAGIC force a SortMergeJoin via SQL hint to see the alternative.
-
-# COMMAND ----------
-
-print("=== FORCED SortMergeJoin via /*+ MERGE */ hint ===")
-spark.sql(f"""
-    SELECT /*+ MERGE(v) */
-           t.VendorID,
-           v.VendorName,
-           t.fare_amount
+# Aggregation forces the join + group-by to run end-to-end (an alias-only
+# count would be optimised away). The result is a small group-by per vendor.
+sql_default = f"""
+    SELECT v.VendorName, sum(t.fare_amount) AS revenue
     FROM {TRIPS_TABLE} t
-    LEFT JOIN {VENDOR_TABLE} v ON t.VendorID = v.VendorID
-""").explain()
+    INNER JOIN {VENDOR_TABLE} v ON t.VendorID = v.VendorID
+    GROUP BY v.VendorName
+"""
+sql_merge = f"""
+    SELECT /*+ MERGE(v) */ v.VendorName, sum(t.fare_amount) AS revenue
+    FROM {TRIPS_TABLE} t
+    INNER JOIN {VENDOR_TABLE} v ON t.VendorID = v.VendorID
+    GROUP BY v.VendorName
+"""
+sql_bcast = sql_merge.replace("/*+ MERGE(v) */", "/*+ BROADCAST(v) */")
+
+print("--- Timing (warmup pass first to dodge cold-cache noise) ---")
+t_default = time_query("Default join (Spark decides)",     sql_default, warmup=True)
+t_merge   = time_query("/*+ MERGE */ -> SortMergeJoin",    sql_merge,   warmup=True)
+t_bcast   = time_query("/*+ BROADCAST */ -> BroadcastHashJoin", sql_bcast, warmup=True)
+
+print(f"\nSortMergeJoin took {t_merge / max(t_bcast, 0.01):.1f}× as long as BroadcastHashJoin.")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC In this plan you should see `SortMergeJoin` with both sides going
-# MAGIC through `Exchange hashpartitioning(VendorID, ...)` — that's the shuffle
-# MAGIC SortMergeJoin requires. On a 30M-row trips table this shuffle would be
-# MAGIC the dominant cost — exactly why Spark prefers broadcast for tiny
-# MAGIC lookups.
+# MAGIC The default and the explicit broadcast match (Spark chose broadcast
+# MAGIC automatically because `vendor_list` is tiny — 7 rows). The
+# MAGIC SortMergeJoin variant is meaningfully slower. To see *why*, look at
+# MAGIC the physical plan of the slow one:
+
+# COMMAND ----------
+
+print("=== /*+ MERGE */ plan (the slow one) ===")
+spark.sql(sql_merge).explain()
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ---
-# MAGIC ## Step 2: Broadcast join — explicit
+# MAGIC The two `Exchange hashpartitioning(VendorID, ...)` nodes are the
+# MAGIC shuffles SortMergeJoin requires — both sides have to be redistributed
+# MAGIC by `VendorID` so matching rows end up on the same executor. That
+# MAGIC redistribution is the cost difference you measured above.
 # MAGIC
-# MAGIC Two equivalent ways to force a broadcast:
+# MAGIC `BroadcastHashJoin` skips the shuffle entirely: the small side is
+# MAGIC copied to every executor, and the large side stays put.
 # MAGIC
-# MAGIC 1. **Python:** wrap the small side with `F.broadcast(...)` — explicit,
-# MAGIC    scoped to one DataFrame query
-# MAGIC 2. **SQL hint:** `/*+ BROADCAST(table) */` — same effect, scoped to one
-# MAGIC    query
+# MAGIC ### Bonus: `F.broadcast(...)` in Python
 # MAGIC
-# MAGIC Both produce a `BroadcastHashJoin` regardless of the autobroadcast
-# MAGIC threshold. Useful when the auto-detection is wrong, e.g. when the small
-# MAGIC side is the result of a filter and Spark doesn't know its post-filter
-# MAGIC size.
+# MAGIC The DataFrame API equivalent of `/*+ BROADCAST */` is
+# MAGIC `F.broadcast(df_small)`. Same plan, same time. Use whichever fits
+# MAGIC your codebase.
 
 # COMMAND ----------
 
 from pyspark.sql.functions import broadcast
 
-# Python API: F.broadcast() hint
-df_joined_bcast = df_trips.join(broadcast(df_vendors), "VendorID", "left")
-print("=== EXPLICIT BROADCAST via F.broadcast() ===")
-df_joined_bcast.explain()
+df_trips   = spark.table(TRIPS_TABLE)
+df_vendors = spark.table(VENDOR_TABLE)
 
-# COMMAND ----------
+df_bcast_python = (df_trips
+    .join(broadcast(df_vendors), "VendorID", "inner")
+    .groupBy(df_vendors.VendorName)
+    .sum("fare_amount"))
 
-# SQL: /*+ BROADCAST */ hint — same effect
-print("=== EXPLICIT BROADCAST via SQL hint ===")
-spark.sql(f"""
-    SELECT /*+ BROADCAST(v) */
-           t.VendorID,
-           v.VendorName,
-           t.fare_amount
-    FROM {TRIPS_TABLE} t
-    LEFT JOIN {VENDOR_TABLE} v ON t.VendorID = v.VendorID
-""").explain()
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC Both plans contain `BroadcastHashJoin` with a `BroadcastExchange`
-# MAGIC feeding the small side. No shuffle on the large side. When in doubt
-# MAGIC about Spark's automatic choice, the hint removes ambiguity.
+t_python = time_query("F.broadcast() (Python API)", df_bcast_python, warmup=True)
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 3: Adaptive Query Execution (AQE)
+# MAGIC ## Step 2: Adaptive Query Execution (AQE)
 # MAGIC
-# MAGIC AQE re-plans the query at runtime based on actual statistics. The three
-# MAGIC headline features:
+# MAGIC AQE re-plans the query at runtime based on actual statistics. Headline
+# MAGIC features:
 # MAGIC
 # MAGIC - **Coalesce shuffle partitions** — combines tiny post-shuffle partitions
 # MAGIC - **Switch join strategy** — converts SortMergeJoin to BroadcastHashJoin
 # MAGIC   when a runtime statistic shows one side is small after filtering
-# MAGIC - **Skew join handling** — splits one giant partition across multiple
-# MAGIC   tasks
+# MAGIC - **Skew join handling** — splits one giant partition across multiple tasks
 # MAGIC
 # MAGIC AQE is **on by default and not user-toggleable on Free Edition
-# MAGIC Serverless** — `spark.conf.set("spark.sql.adaptive.enabled", ...)`
-# MAGIC raises `[CONFIG_NOT_AVAILABLE]`. We can still see AQE in action by
-# MAGIC reading the explain output: any plan wrapped in `AdaptiveSparkPlan`
-# MAGIC will be re-optimised at runtime.
+# MAGIC Serverless** (`spark.conf.set("spark.sql.adaptive.enabled", ...)`
+# MAGIC raises `[CONFIG_NOT_AVAILABLE]`), so we can't do a clean before/after
+# MAGIC timing comparison locally. What we can do: run a query, time it, and
+# MAGIC verify in the plan that AQE is wrapping the operators. The actual plan
+# MAGIC that runs may be different from the printed plan because AQE
+# MAGIC re-optimises after the first shuffle completes.
 
 # COMMAND ----------
 
 aqe_query = (df_trips
-    .filter("trip_distance > 100")        # very selective: long trips only
+    .filter("trip_distance > 100")        # very selective: 1% of rows
     .groupBy("VendorID")
     .count())
 
-print("=== AQE plan markers ===")
+t_aqe = time_query("Filtered aggregation (AQE on)", aqe_query, warmup=True)
+
+print("\n=== Plan ===")
 aqe_query.explain()
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC Look for `AdaptiveSparkPlan isFinalPlan=false` near the top — that's
-# MAGIC the AQE wrapper. The printed plan shows the **initial** plan; the plan
-# MAGIC that actually runs may be different because AQE re-optimises after the
-# MAGIC first shuffle completes and real partition sizes are known.
-# MAGIC
-# MAGIC In production: leave AQE on. The few cases where it hurts (highly
-# MAGIC predictable workloads with no skew) are not worth the cognitive cost
-# MAGIC of remembering the toggle.
+# MAGIC the AQE wrapper. In production: leave AQE on. The few cases where it
+# MAGIC hurts (highly predictable workloads with no skew) are not worth the
+# MAGIC cognitive cost of remembering the toggle.
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 4: Caching — `cache()` vs `persist()`
+# MAGIC ## Step 3: Caching — `cache()` vs `persist()`
 # MAGIC
-# MAGIC When the same DataFrame is used multiple times, Spark recomputes it from
-# MAGIC scratch each time unless told otherwise. Two ways to keep it around:
+# MAGIC When the same DataFrame is used multiple times, Spark recomputes it
+# MAGIC from scratch each time unless told otherwise. Two ways to keep it:
 # MAGIC
 # MAGIC | Method | Storage level |
 # MAGIC |---|---|
@@ -335,18 +328,17 @@ aqe_query.explain()
 # MAGIC `MEMORY_AND_DISK` (default, spills to disk when memory full),
 # MAGIC `DISK_ONLY` (no memory cost, slower reads).
 # MAGIC
-# MAGIC We measure the same aggregation twice with and without caching.
+# MAGIC ### Free Edition Serverless note
+# MAGIC
+# MAGIC `df.unpersist()` is **rejected on Serverless** with
+# MAGIC `[NOT_SUPPORTED_WITH_SERVERLESS]`. Serverless manages cache lifecycle
+# MAGIC automatically — there is no manual unpersist API. Cached state is
+# MAGIC evicted by the platform when memory pressure rises or the notebook
+# MAGIC session ends.
+# MAGIC
+# MAGIC We measure the same aggregation twice with and without `cache()`.
 
 # COMMAND ----------
-
-import time
-
-def time_action(label, fn):
-    t0 = time.perf_counter()
-    result = fn()
-    elapsed = time.perf_counter() - t0
-    print(f"{label}: {elapsed:.2f}s  (result preview: {result})")
-    return elapsed
 
 # Use a moderately complex transformation so the recomputation cost is visible.
 df_filtered = (df_trips
@@ -354,43 +346,45 @@ df_filtered = (df_trips
     .groupBy("VendorID")
     .agg({"fare_amount": "avg", "trip_distance": "avg"}))
 
-# --- Without caching: every action recomputes from scratch.
-df_filtered.unpersist()  # ensure clean state
-time_action("Without cache, run 1", lambda: df_filtered.count())
-time_action("Without cache, run 2", lambda: df_filtered.count())
+print("--- Without caching: every action recomputes from scratch. ---")
+time_query("Without cache, run 1", df_filtered)
+time_query("Without cache, run 2", df_filtered)
 
-# --- With caching: first action materialises, second action reads from cache.
+# --- Materialise the cache, then measure cached reads.
 df_filtered.cache()
-time_action("With cache, run 1 (materialise)", lambda: df_filtered.count())
-time_action("With cache, run 2 (cached)",      lambda: df_filtered.count())
-
-df_filtered.unpersist()
+print("\n--- With caching: first action materialises, second reads from cache. ---")
+time_query("With cache, run 1 (materialise)", df_filtered)
+time_query("With cache, run 2 (cached)",      df_filtered)
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC The second cached run should be measurably faster than the second
-# MAGIC uncached run — typically 2–5× on this size of data. Always call
-# MAGIC `.unpersist()` when you're done so cache memory is reclaimed.
+# MAGIC uncached run — typically 2–5× on this size of data. On Serverless we
+# MAGIC don't `unpersist()`; the platform reclaims the cache when the session
+# MAGIC ends.
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 5: Z-Order on a Delta table
+# MAGIC ## Step 4: Z-Order — data skipping at scan time
 # MAGIC
 # MAGIC `OPTIMIZE table ZORDER BY (col)` rewrites the underlying parquet files
-# MAGIC so that values of `col` are co-located. Subsequent queries that filter on
-# MAGIC `col` skip more files at scan time (Delta's "data skipping").
+# MAGIC so values of `col` are **co-located** in fewer files. Subsequent
+# MAGIC queries that filter on `col` skip more files at scan time (Delta's
+# MAGIC "data skipping").
 # MAGIC
-# MAGIC We materialise a copy of `trips_2025`, Z-order it on `PULocationID`,
-# MAGIC then compare an `EXPLAIN FORMATTED` of a filtered query before and
-# MAGIC after.
+# MAGIC We materialise a copy of `trips_2025` with multiple files (so there's
+# MAGIC something to prune), time a filter query, run `OPTIMIZE ... ZORDER`,
+# MAGIC time the same query again, and compare.
 
 # COMMAND ----------
 
-# Create a smaller working copy so OPTIMIZE finishes quickly on Free Edition.
+# Repartition into 32 files so OPTIMIZE has something to consolidate. With
+# only 2-3 files Z-order has nothing to demonstrate.
 (df_trips
+    .repartition(32)
     .select("VendorID", "tpep_pickup_datetime", "PULocationID", "DOLocationID",
             "fare_amount", "trip_distance")
     .write
@@ -401,26 +395,30 @@ print(f"{GOLD_ZORDER}: {spark.table(GOLD_ZORDER).count():,} rows")
 
 # COMMAND ----------
 
-# Run a filtered query before Z-ordering and capture its plan.
-print("=== BEFORE ZORDER ===")
-spark.sql(f"SELECT count(*) FROM {GOLD_ZORDER} WHERE PULocationID = 132").explain("formatted")
+zorder_query = f"SELECT * FROM {GOLD_ZORDER} WHERE PULocationID = 132"
+
+print("--- Before Z-order (warmup, then measured) ---")
+t_before = time_query("Filter PULocationID = 132 (BEFORE Z-order)", zorder_query, warmup=True)
 
 # COMMAND ----------
 
-# Apply Z-order. Files are rewritten clustered by PULocationID.
+# Apply Z-order — files are rewritten clustered by PULocationID.
 spark.sql(f"OPTIMIZE {GOLD_ZORDER} ZORDER BY (PULocationID)")
+print("OPTIMIZE ZORDER BY (PULocationID) complete.")
 
-print("=== AFTER ZORDER ===")
-spark.sql(f"SELECT count(*) FROM {GOLD_ZORDER} WHERE PULocationID = 132").explain("formatted")
+# COMMAND ----------
+
+print("--- After Z-order (warmup, then measured) ---")
+t_after = time_query("Filter PULocationID = 132 (AFTER Z-order)", zorder_query, warmup=True)
+
+print(f"\nSpeedup: {t_before / max(t_after, 0.01):.1f}× faster after Z-order.")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC In the second plan, look for the `PartitionFilters` and especially the
-# MAGIC `numFiles` / `numFilesAfterPruning` metrics on the scan — Z-order should
-# MAGIC reduce the number of files actually read.
-# MAGIC
-# MAGIC `DESCRIBE DETAIL` shows the file count of the rewritten table:
+# MAGIC The post-Z-order query is faster because Delta only reads the files
+# MAGIC that actually contain `PULocationID = 132`. `DESCRIBE DETAIL` shows
+# MAGIC the file count of the rewritten table:
 
 # COMMAND ----------
 
@@ -430,8 +428,18 @@ spark.sql(f"SELECT count(*) FROM {GOLD_ZORDER} WHERE PULocationID = 132").explai
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC The `EXPLAIN FORMATTED` of the filtered query shows
+# MAGIC `numFilesAfterPruning < numFiles` — Delta skipped files at scan time.
+
+# COMMAND ----------
+
+spark.sql(zorder_query).explain("formatted")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 6: Liquid Clustering
+# MAGIC ## Step 5: Liquid Clustering
 # MAGIC
 # MAGIC Liquid Clustering is the modern alternative to Z-order. Differences:
 # MAGIC
@@ -442,10 +450,12 @@ spark.sql(f"SELECT count(*) FROM {GOLD_ZORDER} WHERE PULocationID = 132").explai
 # MAGIC | Adding columns | Rewrite all data | Just `ALTER TABLE` |
 # MAGIC | Best for | Static datasets, batch ETL | Frequently-updated tables |
 # MAGIC
-# MAGIC Liquid Clustering is declared with `CLUSTER BY` at table creation. It
-# MAGIC requires Delta protocol writer 7+ — flagged below if not available.
+# MAGIC Liquid Clustering requires Delta protocol writer 7+ — wrapped in
+# MAGIC try/except in case the runtime rejects it.
 
 # COMMAND ----------
+
+cluster_query = f"SELECT * FROM {GOLD_CLUSTERED} WHERE PULocationID = 132"
 
 try:
     spark.sql(f"DROP TABLE IF EXISTS {GOLD_CLUSTERED}")
@@ -454,31 +464,28 @@ try:
         CLUSTER BY (PULocationID)
         AS SELECT * FROM {GOLD_ZORDER}
     """)
-    print(f"{GOLD_CLUSTERED}: {spark.table(GOLD_CLUSTERED).count():,} rows")
-    print("Liquid Clustering active.")
+    spark.sql(f"OPTIMIZE {GOLD_CLUSTERED}")
+    print(f"{GOLD_CLUSTERED}: {spark.table(GOLD_CLUSTERED).count():,} rows (clustered)")
+
+    t_cluster = time_query("Filter PULocationID = 132 (Liquid Clustering)", cluster_query, warmup=True)
+    print(f"\nFor reference — Z-order: {t_after:.2f}s, Liquid Clustering: {t_cluster:.2f}s")
 except Exception as e:
-    print(f"Liquid Clustering not available on this runtime: {e}")
-    print("Skipping; the Z-ordered table from Step 5 is sufficient for the rest of the notebook.")
+    print(f"Liquid Clustering not available on this runtime: {type(e).__name__}: {e}")
+    print("Skipping; the Z-ordered table from Step 4 is sufficient for the lessons.")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC On a clustered table, `OPTIMIZE` will trigger clustering automatically
-# MAGIC (no `ZORDER BY` clause needed):
-
-# COMMAND ----------
-
-try:
-    spark.sql(f"OPTIMIZE {GOLD_CLUSTERED}")
-    print("Clustered OPTIMIZE complete.")
-except Exception as e:
-    print(f"Clustered OPTIMIZE skipped: {e}")
+# MAGIC On a clustered table, `OPTIMIZE` triggers clustering automatically (no
+# MAGIC `ZORDER BY` clause needed). For new Delta tables, Databricks now
+# MAGIC recommends Liquid Clustering by default — Z-order remains a fine
+# MAGIC choice for static tables that you optimise once and read many times.
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 7: Repartition vs Coalesce
+# MAGIC ## Step 6: Repartition vs Coalesce
 # MAGIC
 # MAGIC Both change the number of partitions, but they're not interchangeable:
 # MAGIC
@@ -488,26 +495,23 @@ except Exception as e:
 # MAGIC | `df.repartition(N, col)` | New partitioning by hash of `col` | Yes | Co-locate by key for upcoming join |
 # MAGIC | `df.coalesce(N)` | Merge existing partitions | No (only when N < current) | Reduce small files before write |
 # MAGIC
-# MAGIC Rule of thumb: use `coalesce` to **shrink**, `repartition` to **grow** or
-# MAGIC **rebalance**. Coalesce on growth would force a shuffle anyway, so it's
-# MAGIC pointless.
+# MAGIC Rule of thumb: use `coalesce` to **shrink**, `repartition` to **grow**
+# MAGIC or **rebalance**. Coalesce on growth would force a shuffle anyway, so
+# MAGIC it's pointless.
 
 # COMMAND ----------
 
-# Initial number of partitions (depends on file count).
 print(f"Initial partitions:  {df_trips.rdd.getNumPartitions()}")
 
-# Coalesce down to 8 — no shuffle.
 df_coalesced = df_trips.coalesce(8)
 print(f"After coalesce(8):   {df_coalesced.rdd.getNumPartitions()}")
 
-# Repartition up to 32 — full shuffle.
 df_repartitioned = df_trips.repartition(32, "VendorID")
 print(f"After repartition(32, VendorID): {df_repartitioned.rdd.getNumPartitions()}")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC When writing to a partitioned Delta table, `repartition(col)` before the
-# MAGIC write avoids "many tiny files per partition" — each Spark partition
-# MAGIC writes one file per Delta partition.
+# MAGIC When writing to a partitioned Delta table, `repartition(col)` before
+# MAGIC the write avoids "many tiny files per partition" — each Spark
+# MAGIC partition writes one file per Delta partition.
