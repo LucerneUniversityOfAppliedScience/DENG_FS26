@@ -110,8 +110,13 @@ raise NotImplementedError("Step 1: declare and read user/pw widgets")
 # MAGIC  FROM INFORMATION_SCHEMA.TABLES
 # MAGIC  WHERE TABLE_SCHEMA = 'Sales'
 # MAGIC    AND TABLE_TYPE   = 'BASE TABLE'
-# MAGIC  ORDER BY TABLE_NAME) AS table_list
+# MAGIC ) AS table_list
 # MAGIC ```
+# MAGIC
+# MAGIC **Don't put `ORDER BY` inside the subquery** — SQL Server rejects
+# MAGIC ORDER BY in derived tables unless TOP/OFFSET is also present. Apply
+# MAGIC `.orderBy("TABLE_NAME")` Spark-side after the load if you want a
+# MAGIC stable order.
 # MAGIC
 # MAGIC Filter `TABLE_TYPE = 'BASE TABLE'` so we don't accidentally import
 # MAGIC views. Read the result into `df_tables`, count the rows, display.

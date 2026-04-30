@@ -124,12 +124,16 @@ print("Password: (set, not shown)")
 
 # COMMAND ----------
 
+# SQL Server does not allow ORDER BY inside a derived table (subquery)
+# unless TOP/OFFSET/FOR XML is also present. The JDBC connector wraps
+# whatever we pass in `dbtable` as a subquery, so we sort Spark-side
+# instead.
 metadata_query = f"""
     (SELECT TABLE_SCHEMA, TABLE_NAME
      FROM INFORMATION_SCHEMA.TABLES
      WHERE TABLE_SCHEMA = '{SOURCE_SCHEMA}'
        AND TABLE_TYPE   = 'BASE TABLE'
-     ORDER BY TABLE_NAME) AS table_list
+    ) AS table_list
 """
 
 df_tables = (spark.read
@@ -140,7 +144,8 @@ df_tables = (spark.read
     .option("password", db_password)
     .option("database", DB_NAME)
     .option("dbtable",  metadata_query)
-    .load())
+    .load()
+    .orderBy("TABLE_NAME"))
 
 print(f"Found {df_tables.count()} tables in schema '{SOURCE_SCHEMA}'")
 display(df_tables)
