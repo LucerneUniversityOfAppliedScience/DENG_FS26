@@ -51,7 +51,7 @@ print(f"Dropped (if existed): {TARGET_TABLE}")
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 1: When you need a backfill (slide 53)
+# MAGIC ## Step 1: When you need a backfill
 # MAGIC
 # MAGIC Five recurring scenarios:
 # MAGIC
@@ -90,10 +90,10 @@ print(f"Dropped (if existed): {TARGET_TABLE}")
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 3: The discipline — a single `transform(date)` (slide 53)
+# MAGIC ## Step 3: The discipline — a single `transform(date)`
 # MAGIC
 # MAGIC The function below has the contract: **idempotent, deterministic,
-# MAGIC partition-scoped**. Implementation uses `replaceWhere` (slide 40)
+# MAGIC partition-scoped**. Implementation uses `replaceWhere`
 # MAGIC on the date partition.
 # MAGIC
 # MAGIC The same function is called by the forward pipeline (`transform(today)`)
@@ -291,7 +291,7 @@ print(f"event_date = 2026-04-10 row count after correction: {n_corrected}")
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 7: Operational considerations (slide 54)
+# MAGIC ## Step 7: Operational considerations
 # MAGIC
 # MAGIC ### Resource isolation
 # MAGIC Backfilling 2 years of daily partitions in parallel saturates the

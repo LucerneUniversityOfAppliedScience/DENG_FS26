@@ -95,7 +95,7 @@ print(f"Synthetic rows: {df_sales.count():,}")
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 1: Why partition? (slide 34)
+# MAGIC ## Step 1: Why partition?
 # MAGIC
 # MAGIC Same query, two layouts. Flat: every file scanned, filter applied in
 # MAGIC memory. Hive-partitioned: only the matching folder is read, the rest
@@ -130,7 +130,7 @@ print(f"{DELTA_FLAT}: {spark.table(DELTA_FLAT).count():,} rows (flat)")
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 2: Hive-style partitioning (slide 35)
+# MAGIC ## Step 2: Hive-style partitioning
 # MAGIC
 # MAGIC `partitionBy("topic", "year", "month", "day")` writes the data into a
 # MAGIC folder hierarchy:
@@ -187,7 +187,7 @@ spark.sql(filter_sql_hive).explain("formatted")
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 3: Choosing partition columns (slide 36)
+# MAGIC ## Step 3: Choosing partition columns
 # MAGIC
 # MAGIC | Rule | What it means |
 # MAGIC |---|---|
@@ -207,7 +207,7 @@ spark.sql(filter_sql_hive).explain("formatted")
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 4: Anti-patterns (slide 37)
+# MAGIC ## Step 4: Anti-patterns
 # MAGIC
 # MAGIC ### Over-partitioning — small-files problem
 # MAGIC Partitioning down to the minute creates 1440 partitions per day.
@@ -257,7 +257,7 @@ print("In production this means: slow LIST calls, slow planning, no compression 
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 5: Liquid Clustering vs Hive partitioning (slide 38)
+# MAGIC ## Step 5: Liquid Clustering vs Hive partitioning
 # MAGIC
 # MAGIC | Aspect | Hive `partitionBy` | Liquid Clustering |
 # MAGIC |---|---|---|
@@ -304,7 +304,7 @@ except Exception as e:
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 6: Raw / Landing partitioning is still essential (slide 39)
+# MAGIC ## Step 6: Raw / Landing partitioning is still essential
 # MAGIC
 # MAGIC Liquid Clustering only applies to **Delta** tables. The
 # MAGIC Raw / Landing zone is plain Parquet / JSON / CSV on object storage —
@@ -324,7 +324,7 @@ except Exception as e:
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 7: replaceWhere — atomic idempotent partition overwrite (slide 40)
+# MAGIC ## Step 7: replaceWhere — atomic idempotent partition overwrite
 # MAGIC
 # MAGIC `replaceWhere` lets you overwrite **only the rows matching a
 # MAGIC predicate**, in a single Delta transaction. The classic use case:
@@ -381,7 +381,7 @@ print(f"After second replaceWhere — total rows: {spark.table(DELTA_PARTITIONED
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 8: replaceWhere vs MERGE INTO (slide 49)
+# MAGIC ## Step 8: replaceWhere vs MERGE INTO
 # MAGIC
 # MAGIC Both are atomic, both run in a single Delta transaction. They solve
 # MAGIC **different problems**.

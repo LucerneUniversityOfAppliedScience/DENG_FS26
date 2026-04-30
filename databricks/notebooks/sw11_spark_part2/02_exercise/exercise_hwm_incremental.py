@@ -157,7 +157,7 @@ raise NotImplementedError("Step 3: read hwm for PIPELINE_NAME from META_TABLE")
 # MAGIC
 # MAGIC - **Lower:** `WHERE ModifiedDate > '<hwm>'` (strict)
 # MAGIC - **Upper:** `AND ModifiedDate <= DATEADD(MINUTE, -5, GETDATE())`
-# MAGIC   (5-minute clock-skew safety, slide 42)
+# MAGIC   (5-minute clock-skew safety)
 # MAGIC
 # MAGIC Wrap the SELECT in `(...) AS delta` so the JDBC connector accepts it
 # MAGIC as a derived table.
@@ -231,7 +231,7 @@ raise NotImplementedError("Step 7: re-run delta pull, expect 0 rows")
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 8: Three things that bite (slide 42, markdown only)
+# MAGIC ## Step 8: Three things that bite (markdown only)
 # MAGIC
 # MAGIC ### 1. Clock skew between source and pipeline
 # MAGIC The 5-minute upper boundary covers source vs pipeline clock drift.

@@ -20,7 +20,7 @@
 # MAGIC default for any source that exposes a reliable `updated_at` /
 # MAGIC `ModifiedDate` column.
 # MAGIC
-# MAGIC ## The three incremental patterns (slide 29)
+# MAGIC ## The three incremental patterns
 # MAGIC
 # MAGIC | Pattern | Source signal | Target write | Typical use |
 # MAGIC |---|---|---|---|
@@ -200,7 +200,7 @@ print(f"Current HWM for {PIPELINE_NAME}: {current_hwm}")
 # MAGIC
 # MAGIC - **Lower (inclusive of HWM means dupes; we use strict `>`):**
 # MAGIC   `WHERE ModifiedDate > '<hwm>'`
-# MAGIC - **Upper (clock-skew safety, slide 42):**
+# MAGIC - **Upper (clock-skew safety):**
 # MAGIC   `AND ModifiedDate <= DATEADD(MINUTE, -5, GETDATE())`
 # MAGIC
 # MAGIC The upper boundary is critical: source clocks may run a few seconds
@@ -249,7 +249,7 @@ print(f"Delta: {delta_rows:,} rows newer than {current_hwm}")
 # MAGIC ## Step 5: Write to Bronze and compute the new HWM
 # MAGIC
 # MAGIC We add a `_load_ts = current_timestamp()` audit column. Write mode is
-# MAGIC `append` — Bronze is append-only by definition (slide 21).
+# MAGIC `append` — Bronze is append-only by definition.
 # MAGIC
 # MAGIC The new HWM is `max(ModifiedDate)` of this delta. If the delta is
 # MAGIC empty (no new rows since last run), the HWM stays unchanged.
@@ -344,7 +344,7 @@ print(f"Re-run delta: {n2} rows  ({'idempotent ✓' if n2 == 0 else 'unexpected 
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Step 8: Three things that bite (slide 42)
+# MAGIC ## Step 8: Three things that bite
 # MAGIC
 # MAGIC ### 1. Clock skew between source and pipeline
 # MAGIC

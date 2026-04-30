@@ -339,7 +339,7 @@ autoloader_run()
 # MAGIC
 # MAGIC The next run sees an empty checkpoint state, so every file in
 # MAGIC `INCOMING` is treated as new. Same code path as forward runs —
-# MAGIC **no special "fix" pipeline** (slide 53).
+# MAGIC **no special "fix" pipeline**.
 
 # COMMAND ----------
 

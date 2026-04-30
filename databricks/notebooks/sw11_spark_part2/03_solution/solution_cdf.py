@@ -22,7 +22,7 @@
 # MAGIC reconciliation pass. That makes it the right primitive for any
 # MAGIC pipeline that needs to mirror a source faithfully.
 # MAGIC
-# MAGIC ## The four `_change_type` values (slide 51)
+# MAGIC ## The four `_change_type` values
 # MAGIC
 # MAGIC | Value | Meaning | What you usually do |
 # MAGIC |---|---|---|
@@ -266,7 +266,7 @@ display(df_changes.orderBy("_commit_version", "_change_type", "id"))
 # MAGIC ---
 # MAGIC ## Step 7: Apply changes downstream
 # MAGIC
-# MAGIC Standard CDF apply pattern (slide 51):
+# MAGIC Standard CDF apply pattern:
 # MAGIC - Drop `update_preimage` rows (diagnostics only)
 # MAGIC - `INSERT` and `update_postimage` go through MERGE as upserts
 # MAGIC - `delete` goes through MERGE as a key-matched delete
@@ -385,4 +385,4 @@ except Exception as e:
 # MAGIC
 # MAGIC If Silver gains a new column mid-pipeline, the MERGE statements
 # MAGIC need `MERGE WITH SCHEMA EVOLUTION` to propagate the new column to
-# MAGIC Gold without manual `ALTER TABLE`. See slide 48 for the syntax.
+# MAGIC Gold without manual `ALTER TABLE`.
