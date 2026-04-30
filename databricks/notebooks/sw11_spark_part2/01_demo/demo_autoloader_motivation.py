@@ -9,7 +9,7 @@
 # MAGIC
 # MAGIC ## The arc
 # MAGIC
-# MAGIC | Phase | Pattern | Outcome |
+# MAGIC | Step | Pattern | Outcome |
 # MAGIC |---|---|---|
 # MAGIC | 1 | Naïve append: re-read the whole folder, write to Bronze | **Duplicates** |
 # MAGIC | 2 | Hand-rolled tracker table of loaded files | Works, but **fragile** |
@@ -77,6 +77,9 @@ print(f"Created: {INCOMING}")
 # MAGIC
 # MAGIC The names look like `data_a3f9.csv` — no date, no sequence, no hint
 # MAGIC about arrival order. Realistic for upstream systems that use UUIDs.
+# MAGIC
+# MAGIC This cell only **defines** the helper. Each Step calls it explicitly
+# MAGIC when it wants to seed a new batch.
 
 # COMMAND ----------
 
@@ -97,19 +100,22 @@ def seed_batch(rows_per_file, n_files=2):
         names.append(name)
     return names
 
-# Seed Batch 1: two files with three rows each.
-batch_1 = seed_batch(rows_per_file=3, n_files=2)
-print(f"Batch 1 written: {batch_1}")
-display(dbutils.fs.ls(INCOMING))
-
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC # Phase 1 — Naïve append
+# MAGIC # Step 1 — Naïve append (and how it duplicates)
 # MAGIC
 # MAGIC The simplest thing that "works": read the whole folder and append to
-# MAGIC Bronze. Run it once, see 6 rows.
+# MAGIC Bronze. We seed two files, run once → 6 rows. Then we run the same
+# MAGIC code a second time with no new files and see what happens.
+
+# COMMAND ----------
+
+# Seed Batch 1: two files, three rows each.
+batch_1 = seed_batch(rows_per_file=3, n_files=2)
+print(f"Batch 1 written: {batch_1}")
+display(dbutils.fs.ls(INCOMING))
 
 # COMMAND ----------
 
@@ -157,7 +163,7 @@ naive_append()
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC # Phase 2 — Hand-rolled tracker table
+# MAGIC # Step 2 — Hand-rolled tracker table
 # MAGIC
 # MAGIC The standard hand-rolled fix: keep a Delta table that records every
 # MAGIC file already loaded. Before each load, list the folder and skip
@@ -253,7 +259,7 @@ tracked_append()
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC # Phase 3 — Auto Loader
+# MAGIC # Step 3 — Auto Loader
 # MAGIC
 # MAGIC The same use case, with **no tracker code in your codebase**. The
 # MAGIC checkpoint is internal to Spark Structured Streaming and managed for
@@ -320,7 +326,7 @@ autoloader_run()
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC # Phase 4 — Full refresh by deleting the checkpoint
+# MAGIC # Step 4 — Full refresh by deleting the checkpoint
 # MAGIC
 # MAGIC Sometimes you **need** to re-ingest everything: bug in the
 # MAGIC transformation logic, schema migration, source corrected upstream,
