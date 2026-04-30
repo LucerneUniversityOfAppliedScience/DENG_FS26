@@ -17,6 +17,22 @@ print(f"Silver table: {SILVER_TABLE}")
 
 # MAGIC %md
 # MAGIC ---
+# MAGIC ## Cleanup: drop existing tables
+# MAGIC
+# MAGIC Drop any existing Bronze/Silver tables before re-running so a stale schema
+# MAGIC from a previous run does not block the overwrite (Delta refuses schema
+# MAGIC changes on `overwrite` when Table ACLs are enabled).
+
+# COMMAND ----------
+
+for table in [BRONZE_TABLE, SILVER_TABLE]:
+    spark.sql(f"DROP TABLE IF EXISTS {table}")
+    print(f"Dropped (if existed): {table}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ---
 # MAGIC ## Step 1: Read the JSON file
 
 # COMMAND ----------
@@ -43,7 +59,7 @@ print(f"Row count: {df_raw.count()}")  # → 1 row!
 
 # COMMAND ----------
 
-from pyspark.sql.functions import explode, col, try_cast
+from pyspark.sql.functions import explode, col, expr
 
 df_exploded = df_raw.select(explode(col("root.Page")).alias("offer"))
 print(f"Number of offers: {df_exploded.count():,}")
@@ -84,18 +100,18 @@ df_bronze = spark.table(BRONZE_TABLE)
 df_silver = df_bronze.select(
     col("offer.Position.Hotel.Name").alias("hotel_name"),
     col("offer.Position.Hotel.Class").alias("hotel_class"),
-    try_cast(col("offer.Position.Hotel.Lat"), "double").alias("lat"),
-    try_cast(col("offer.Position.Hotel.Lon"), "double").alias("lon"),
+    expr("try_cast(offer.Position.Hotel.Lat as double)").alias("lat"),
+    expr("try_cast(offer.Position.Hotel.Lon as double)").alias("lon"),
     col("offer.Position.Destination.Country.Name").alias("country_name"),
     col("offer.Position.Destination.Region.Name").alias("region_name"),
     col("offer.Position.Destination.Location.Name").alias("location_name"),
-    try_cast(col("offer.Position.Price.Value"), "double").alias("price"),
+    expr("try_cast(offer.Position.Price.Value as double)").alias("price"),
     col("offer.Position.Price.Currency").alias("currency"),
-    try_cast(col("offer.Position.Duration.Value"), "int").alias("duration_days"),
+    expr("try_cast(offer.Position.Duration.Value as int)").alias("duration_days"),
     col("offer.Position.Package.DepartureDate.Value").alias("departure_date"),
     col("offer.Position.Package.TourOperator.Name").alias("tour_operator"),
     col("offer.Position.Package.MealPlan.Name").alias("meal_plan"),
-    try_cast(col("offer.Position.Package.Hotelrating.Rating"), "double").alias("rating"),
+    expr("try_cast(offer.Position.Package.Hotelrating.Rating as double)").alias("rating"),
 )
 
 df_silver.write.mode("overwrite").saveAsTable(SILVER_TABLE)

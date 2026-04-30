@@ -25,6 +25,22 @@ print(f"Silver table: {SILVER_TABLE}")
 
 # MAGIC %md
 # MAGIC ---
+# MAGIC ## Cleanup: drop existing tables
+# MAGIC
+# MAGIC Drop any existing Bronze/Silver tables before re-running so a stale schema
+# MAGIC from a previous run does not block the overwrite (Delta refuses schema
+# MAGIC changes on `overwrite` when Table ACLs are enabled).
+
+# COMMAND ----------
+
+for table in [BRONZE_TABLE, SILVER_TABLE]:
+    spark.sql(f"DROP TABLE IF EXISTS {table}")
+    print(f"Dropped (if existed): {table}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ---
 # MAGIC ## Step 1: Read the JSON file
 # MAGIC
 # MAGIC Use `spark.read.json()` to load the file and explore the structure with `.printSchema()`.

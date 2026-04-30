@@ -14,10 +14,33 @@
 
 # COMMAND ----------
 
+import re
+
 import pandas as pd
 
 XLSX_PATH = "/Volumes/workspace/raw/sample_data/xlsx/FinancialsSampleData.xlsx"
 print(f"XLSX file: {XLSX_PATH}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ---
+# MAGIC ## Cleanup: drop existing tables
+# MAGIC
+# MAGIC Drop any existing Bronze/Silver tables before re-running so a stale schema
+# MAGIC from a previous run does not block the overwrite (Delta refuses schema
+# MAGIC changes on `overwrite` when Table ACLs are enabled).
+
+# COMMAND ----------
+
+for table in [
+    "workspace.bronze.financials_budget",
+    "workspace.bronze.financials_sales",
+    "workspace.silver.financials_budget",
+    "workspace.silver.financials_sales",
+]:
+    spark.sql(f"DROP TABLE IF EXISTS {table}")
+    print(f"Dropped (if existed): {table}")
 
 # COMMAND ----------
 
@@ -46,6 +69,12 @@ print(f"Financials2: {df_sales.count()} rows")
 df_sales.printSchema()
 
 # COMMAND ----------
+
+def clean_cols(df):
+    return df.toDF(*[re.sub(r"[ ,;{}()\n\t=]", "_", c) for c in df.columns])
+
+df_budget = clean_cols(df_budget)
+df_sales = clean_cols(df_sales)
 
 df_budget.write.mode("overwrite").saveAsTable("workspace.bronze.financials_budget")
 df_sales.write.mode("overwrite").saveAsTable("workspace.bronze.financials_sales")
@@ -83,21 +112,25 @@ print("Bronze tables written")
 
 # COMMAND ----------
 
-from pyspark.sql.functions import col, try_cast
+from pyspark.sql.functions import expr
 
 # Silver: Budget table — fix column name typo, ensure numeric types for months
 df_budget_silver = (spark.table("workspace.bronze.financials_budget")
-    .withColumnRenamed("Businees Unit", "business_unit")
+    .withColumnRenamed("Businees_Unit", "business_unit")
     .withColumnRenamed("Account", "account")
     .withColumnRenamed("Currency", "currency")
     .withColumnRenamed("Year", "year")
     .withColumnRenamed("Scenario", "scenario")
 )
 
+# Rename month columns to lowercase first, then cast — avoid withColumn+drop with
+# case-only differences (Spark resolves names case-insensitively by default and
+# would treat Jan and jan as the same column).
 for month in ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]:
-    df_budget_silver = df_budget_silver.withColumn(
-        month.lower(), try_cast(col(month), "double")
-    ).drop(month)
+    df_budget_silver = df_budget_silver.withColumnRenamed(month, month.lower())
+
+for month in ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]:
+    df_budget_silver = df_budget_silver.withColumn(month, expr(f"try_cast({month} as double)"))
 
 df_budget_silver.write.mode("overwrite").saveAsTable("workspace.silver.financials_budget")
 print("Silver table written: workspace.silver.financials_budget")
@@ -114,19 +147,29 @@ df_sales_silver = (spark.table("workspace.bronze.financials_sales")
     .withColumnRenamed("Segment", "segment")
     .withColumnRenamed("Country", "country")
     .withColumnRenamed("Product", "product")
-    .withColumnRenamed("Discount Band", "discount_band")
-    .withColumn("units_sold", try_cast(col("Units Sold"), "double")).drop("Units Sold")
-    .withColumn("manufacturing_price", try_cast(col("Manufacturing Price"), "double")).drop("Manufacturing Price")
-    .withColumn("sale_price", try_cast(col("Sale Price"), "double")).drop("Sale Price")
-    .withColumn("gross_sales", try_cast(col("Gross Sales"), "double")).drop("Gross Sales")
-    .withColumn("discounts", try_cast(col("Discounts"), "double")).drop("Discounts")
-    .withColumn("sales", try_cast(col(" Sales"), "double")).drop(" Sales")
-    .withColumn("cogs", try_cast(col("COGS"), "double")).drop("COGS")
-    .withColumn("profit", try_cast(col("Profit"), "double")).drop("Profit")
+    .withColumnRenamed("Discount_Band", "discount_band")
+    .withColumnRenamed("Units_Sold", "units_sold")
+    .withColumnRenamed("Manufacturing_Price", "manufacturing_price")
+    .withColumnRenamed("Sale_Price", "sale_price")
+    .withColumnRenamed("Gross_Sales", "gross_sales")
+    .withColumnRenamed("Discounts", "discounts")
+    .withColumnRenamed("_Sales", "sales")
+    .withColumnRenamed("COGS", "cogs")
+    .withColumnRenamed("Profit", "profit")
     .withColumnRenamed("Date", "date")
-    .withColumn("month_number", try_cast(col("Month Number"), "int")).drop("Month Number")
-    .withColumnRenamed("Month Name", "month_name")
-    .withColumn("year", try_cast(col("Year"), "int")).drop("Year")
+    .withColumnRenamed("Month_Number", "month_number")
+    .withColumnRenamed("Month_Name", "month_name")
+    .withColumnRenamed("Year", "year")
+    .withColumn("units_sold", expr("try_cast(units_sold as double)"))
+    .withColumn("manufacturing_price", expr("try_cast(manufacturing_price as double)"))
+    .withColumn("sale_price", expr("try_cast(sale_price as double)"))
+    .withColumn("gross_sales", expr("try_cast(gross_sales as double)"))
+    .withColumn("discounts", expr("try_cast(discounts as double)"))
+    .withColumn("sales", expr("try_cast(sales as double)"))
+    .withColumn("cogs", expr("try_cast(cogs as double)"))
+    .withColumn("profit", expr("try_cast(profit as double)"))
+    .withColumn("month_number", expr("try_cast(month_number as int)"))
+    .withColumn("year", expr("try_cast(year as int)"))
 )
 
 df_sales_silver.write.mode("overwrite").saveAsTable("workspace.silver.financials_sales")

@@ -13,6 +13,25 @@ print(f"XML file: {XML_PATH}")
 
 # MAGIC %md
 # MAGIC ---
+# MAGIC ## Cleanup: drop existing tables
+# MAGIC
+# MAGIC Drop any existing Bronze/Silver tables before re-running so a stale schema
+# MAGIC from a previous run does not block the overwrite (Delta refuses schema
+# MAGIC changes on `overwrite` when Table ACLs are enabled).
+
+# COMMAND ----------
+
+for table in [
+    "workspace.bronze.countries_raw",
+    "workspace.silver.countries",
+]:
+    spark.sql(f"DROP TABLE IF EXISTS {table}")
+    print(f"Dropped (if existed): {table}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ---
 # MAGIC ## Step 1: Read XML into Bronze
 
 # COMMAND ----------
