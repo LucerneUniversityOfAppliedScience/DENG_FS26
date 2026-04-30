@@ -162,8 +162,14 @@ raise NotImplementedError("Step 3: read hwm for PIPELINE_NAME from META_TABLE")
 # MAGIC Wrap the SELECT in `(...) AS delta` so the JDBC connector accepts it
 # MAGIC as a derived table.
 # MAGIC
-# MAGIC **Task:** read the delta DataFrame, cache it (we'll use it for count
-# MAGIC + max + write), print the row count.
+# MAGIC **Task:** read the delta DataFrame and compute count + max in a
+# MAGIC single aggregation. **Do not call `.cache()`** — Serverless rejects
+# MAGIC `PERSIST TABLE`. The single agg saves us a round trip; the write in
+# MAGIC Step 5 is a second round trip.
+# MAGIC
+# MAGIC ```python
+# MAGIC stats = df_delta.agg(F.count("*").alias("n"), F.max(HWM_COLUMN).alias("max_ts")).first()
+# MAGIC ```
 
 # COMMAND ----------
 

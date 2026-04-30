@@ -330,13 +330,13 @@ aqe_query.explain()
 # MAGIC
 # MAGIC ### Free Edition Serverless note
 # MAGIC
-# MAGIC `df.unpersist()` is **rejected on Serverless** with
-# MAGIC `[NOT_SUPPORTED_WITH_SERVERLESS]`. Serverless manages cache lifecycle
-# MAGIC automatically — there is no manual unpersist API. Cached state is
-# MAGIC evicted by the platform when memory pressure rises or the notebook
-# MAGIC session ends.
-# MAGIC
-# MAGIC We measure the same aggregation twice with and without `cache()`.
+# MAGIC Serverless rejects **both** `df.cache()` (`PERSIST TABLE`) and
+# MAGIC `df.unpersist()` (`UNPERSIST TABLE`) at runtime. Serverless manages
+# MAGIC cache lifecycle internally — there is no user-facing persist API.
+# MAGIC The cache demo below is wrapped in `try/except`: on Serverless it
+# MAGIC reports the restriction and skips; on classic compute or dedicated
+# MAGIC clusters it runs normally and you'll see the 2–5× speedup of the
+# MAGIC cached run vs the uncached run.
 
 # COMMAND ----------
 
@@ -351,18 +351,25 @@ time_query("Without cache, run 1", df_filtered)
 time_query("Without cache, run 2", df_filtered)
 
 # --- Materialise the cache, then measure cached reads.
-df_filtered.cache()
-print("\n--- With caching: first action materialises, second reads from cache. ---")
-time_query("With cache, run 1 (materialise)", df_filtered)
-time_query("With cache, run 2 (cached)",      df_filtered)
+try:
+    df_filtered.cache()
+    print("\n--- With caching: first action materialises, second reads from cache. ---")
+    time_query("With cache, run 1 (materialise)", df_filtered)
+    time_query("With cache, run 2 (cached)",      df_filtered)
+except Exception as e:
+    if "NOT_SUPPORTED_WITH_SERVERLESS" in str(e):
+        print("\nSkipping cache demo: PERSIST TABLE is blocked on Serverless.")
+        print("This step runs on classic compute / dedicated clusters.")
+    else:
+        raise
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC The second cached run should be measurably faster than the second
-# MAGIC uncached run — typically 2–5× on this size of data. On Serverless we
-# MAGIC don't `unpersist()`; the platform reclaims the cache when the session
-# MAGIC ends.
+# MAGIC On classic compute the second cached run should be measurably faster
+# MAGIC than the second uncached run — typically 2–5× on this size of data.
+# MAGIC On Serverless the cache call itself is rejected, so the cell prints
+# MAGIC the restriction and continues.
 
 # COMMAND ----------
 

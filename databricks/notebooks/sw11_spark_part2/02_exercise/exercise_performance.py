@@ -246,15 +246,17 @@ raise NotImplementedError("Step 2: time the AQE-wrapped query and inspect the pl
 # MAGIC
 # MAGIC ### Free Edition Serverless note
 # MAGIC
-# MAGIC `df.unpersist()` is **rejected on Serverless** with
-# MAGIC `[NOT_SUPPORTED_WITH_SERVERLESS]`. Serverless manages cache lifecycle
-# MAGIC automatically. Don't call `unpersist()` here — the platform will
-# MAGIC reclaim cache when the session ends.
+# MAGIC Serverless rejects **both** `df.cache()` (`PERSIST TABLE`) and
+# MAGIC `df.unpersist()` (`UNPERSIST TABLE`) at runtime. Wrap the `.cache()`
+# MAGIC call in `try/except` so the cell skips gracefully on Serverless and
+# MAGIC runs normally on classic compute.
 # MAGIC
 # MAGIC **Task:** measure the same aggregation
 # MAGIC (`fare_amount > 0 AND trip_distance > 0`, group by `VendorID`,
-# MAGIC avg fare/distance) twice without caching, then `.cache()` and measure
-# MAGIC twice with caching. Compare run-2-uncached vs run-2-cached.
+# MAGIC avg fare/distance) twice without caching, then attempt `.cache()`
+# MAGIC inside try/except. On classic compute, measure twice more after
+# MAGIC caching and compare run-2-uncached vs run-2-cached. On Serverless,
+# MAGIC the except branch prints the restriction.
 
 # COMMAND ----------
 

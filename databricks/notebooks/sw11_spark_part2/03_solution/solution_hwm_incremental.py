@@ -237,9 +237,18 @@ df_delta = (spark.read
     .option("dbtable",  delta_query)
     .load())
 
-# Cache so we don't re-issue the JDBC query for count + max + write
-df_delta = df_delta.cache()
-delta_rows = df_delta.count()
+# Note: Serverless rejects df.cache() / df.persist() / df.unpersist() at
+# runtime. Without caching, count + max + write would each issue a
+# separate JDBC query. We minimise that to two round trips by reading
+# count and the new HWM in a single aggregation, then doing the write.
+
+from pyspark.sql import functions as F
+
+stats = df_delta.agg(
+    F.count("*").alias("n"),
+    F.max(HWM_COLUMN).alias("max_ts"),
+).first()
+delta_rows = stats["n"]
 print(f"Delta: {delta_rows:,} rows newer than {current_hwm}")
 
 # COMMAND ----------
@@ -267,11 +276,9 @@ else:
         .write
         .mode("append")
         .saveAsTable(BRONZE_TABLE))
-    new_hwm = df_delta.agg({HWM_COLUMN: "max"}).first()[0]
+    new_hwm = stats["max_ts"]  # already computed in Step 4's aggregation
     print(f"Wrote {delta_rows:,} rows to {BRONZE_TABLE}")
     print(f"New HWM: {new_hwm}")
-
-df_delta.unpersist() if False else None  # Serverless rejects unpersist — we leave the cache to platform GC
 
 # COMMAND ----------
 

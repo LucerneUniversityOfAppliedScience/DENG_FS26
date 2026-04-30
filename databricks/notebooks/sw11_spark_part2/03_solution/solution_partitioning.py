@@ -86,8 +86,10 @@ df_sales = (spark.range(n_rows)
     .withColumn("topic",      expr("CASE cast(rand(8) * 3 as int) WHEN 0 THEN 'crm' WHEN 1 THEN 'erp' ELSE 'iot' END"))
     .withColumn("customer_id", (expr("rand(9) * 10000") + 1).cast("int"))
     .withColumn("amount",     expr("round(rand(10) * 500, 2)"))
-    .drop("id")
-    .cache())
+    .drop("id"))
+# Note: we deliberately do NOT call .cache() — Serverless rejects PERSIST
+# TABLE. Each downstream step will re-evaluate df_sales, which is fine
+# for a 500k-row generator at this scale.
 
 print(f"Synthetic rows: {df_sales.count():,}")
 
