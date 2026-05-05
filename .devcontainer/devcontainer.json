@@ -1,8 +1,8 @@
 {
     "name": "DENG Streaming",
     "dockerComposeFile": [
-        "../streaming/docker-compose.yml",
-        "docker-compose.yml"
+        "docker-compose.yml",
+        "../streaming/docker-compose.yml"
     ],
     "service": "workspace",
     "workspaceFolder": "/workspaces/DENG_FS26",
