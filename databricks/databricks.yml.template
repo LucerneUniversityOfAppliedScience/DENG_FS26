@@ -5,7 +5,7 @@
 #        databricks.yml is listed in .gitignore and will NOT be committed to git.
 #
 bundle:
-  name: bsc_eds_gis_fs2026
+  name: deng_fs2026
 
 variables:
   catalog_name:
