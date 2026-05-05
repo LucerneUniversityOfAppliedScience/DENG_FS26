@@ -29,6 +29,40 @@ Codespaces size that comfortably runs all three services.
 > finish working (Codespaces panel → "Stop codespace"); just closing the tab
 > keeps it billing.
 
+## Opening the web UIs
+
+Both UIs are reachable through Codespaces' port forwarding — there is no need
+to expose anything publicly.
+
+**Redpanda Console** (port `8080`) and **RisingWave Dashboard** (port `5691`):
+
+1. In VS Code (browser or desktop) open the **PORTS** tab in the bottom panel
+   (next to *Terminal* / *Problems*).
+2. Find the row for the port you want — labels are pre-set:
+   - `8080` → Redpanda Console
+   - `5691` → RisingWave Dashboard
+3. Hover the row and click the globe icon (**Open in Browser**) or the
+   magnifier icon (**Preview in Editor**).
+
+If the PORTS tab is empty, the containers are still starting — run
+`docker compose ps` and wait until `redpanda` and `risingwave` are *healthy*.
+
+Direct URL pattern (useful for sharing or bookmarks within your own session):
+
+```
+https://<codespace-name>-<port>.app.github.dev
+```
+
+The codespace name appears in the top-left of the VS Code window and in the
+browser tab title.
+
+For RisingWave SQL there is no web UI — connect via `psql` from the codespace
+terminal:
+
+```bash
+psql -h risingwave -p 4566 -d dev -U root
+```
+
 ## Quick smoke test
 
 ```bash
