@@ -1,0 +1,50 @@
+{
+    "name": "DENG Streaming",
+    "dockerComposeFile": [
+        "../streaming/docker-compose.yml",
+        "docker-compose.yml"
+    ],
+    "service": "workspace",
+    "workspaceFolder": "/workspaces/DENG_FS26",
+    "hostRequirements": {
+        "cpus": 4,
+        "memory": "16gb",
+        "storage": "32gb"
+    },
+    "forwardPorts": [
+        8080,
+        4566,
+        5691,
+        9092,
+        8081
+    ],
+    "portsAttributes": {
+        "8080": {
+            "label": "Redpanda Console",
+            "onAutoForward": "openPreview"
+        },
+        "5691": {
+            "label": "RisingWave Dashboard"
+        },
+        "4566": {
+            "label": "RisingWave SQL (psql)"
+        },
+        "9092": {
+            "label": "Redpanda Kafka API"
+        },
+        "8081": {
+            "label": "Schema Registry"
+        }
+    },
+    "postCreateCommand": "cd streaming && uv sync",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "mtxr.sqltools",
+                "mtxr.sqltools-driver-pg"
+            ]
+        }
+    }
+}

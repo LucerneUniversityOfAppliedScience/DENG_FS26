@@ -1,0 +1,69 @@
+name: deng-streaming
+
+services:
+  redpanda:
+    image: redpandadata/redpanda:v24.3.5
+    container_name: redpanda
+    command:
+      - redpanda
+      - start
+      - --kafka-addr=internal://0.0.0.0:29092,external://0.0.0.0:9092
+      - --advertise-kafka-addr=internal://redpanda:29092,external://localhost:9092
+      - --pandaproxy-addr=internal://0.0.0.0:28082,external://0.0.0.0:8082
+      - --advertise-pandaproxy-addr=internal://redpanda:28082,external://localhost:8082
+      - --schema-registry-addr=internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr=redpanda:33145
+      - --advertise-rpc-addr=redpanda:33145
+      - --mode=dev-container
+      - --smp=1
+      - --default-log-level=info
+    ports:
+      - "9092:9092"
+      - "8081:8081"
+      - "8082:8082"
+      - "9644:9644"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster info -X brokers=localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  redpanda-console:
+    image: redpandadata/console:v2.8.2
+    container_name: redpanda-console
+    environment:
+      KAFKA_BROKERS: redpanda:29092
+      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
+      REDPANDA_ADMINAPI_ENABLED: "true"
+      REDPANDA_ADMINAPI_URLS: http://redpanda:9644
+    ports:
+      - "8080:8080"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  risingwave:
+    image: risingwavelabs/risingwave:v2.1.2
+    container_name: risingwave
+    command: ["single_node"]
+    environment:
+      RW_TELEMETRY_TYPE: disabled
+    ports:
+      - "4566:4566"
+      - "5691:5691"
+    volumes:
+      - risingwave-data:/root/.risingwave
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/tcp/localhost/4566'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  redpanda-data:
+  risingwave-data:

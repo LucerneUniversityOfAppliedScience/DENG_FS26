@@ -1,0 +1,15 @@
+[project]
+name = "deng-streaming"
+version = "0.1.0"
+description = "Streaming exercises for DENG: Redpanda + RisingWave"
+requires-python = ">=3.12"
+dependencies = [
+    "confluent-kafka>=2.6.0",
+    "psycopg[binary]>=3.2.0",
+    "faker>=30.0.0",
+    "pandas>=2.2.0",
+    "pyarrow>=18.0.0",
+]
+
+[tool.uv]
+package = false

@@ -1,0 +1,13 @@
+name: deng-streaming
+
+services:
+  workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    depends_on:
+      redpanda:
+        condition: service_healthy
