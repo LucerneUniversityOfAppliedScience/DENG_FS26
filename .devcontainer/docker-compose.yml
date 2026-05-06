@@ -1,5 +1,8 @@
 name: deng-streaming
 
+include:
+  - ../streaming/docker-compose.yml
+
 services:
   workspace:
     build:

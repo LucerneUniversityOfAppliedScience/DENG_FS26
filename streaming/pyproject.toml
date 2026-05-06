@@ -9,6 +9,8 @@ dependencies = [
     "faker>=30.0.0",
     "pandas>=2.2.0",
     "pyarrow>=18.0.0",
+    "duckdb>=1.1.0",
+    "marimo>=0.9.0",
 ]
 
 [tool.uv]

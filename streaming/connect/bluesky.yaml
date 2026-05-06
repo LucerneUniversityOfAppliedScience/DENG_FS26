@@ -1,0 +1,14 @@
+input:
+  websocket:
+    url: wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post
+
+output:
+  kafka_franz:
+    seed_brokers:
+      - redpanda:29092
+    topic: bluesky
+    compression: snappy
+
+logger:
+  level: INFO
+  format: logfmt

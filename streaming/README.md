@@ -6,12 +6,13 @@ anything locally or pay for cloud services.
 
 ## What's inside
 
-| Service          | Port (forwarded) | Purpose                                    |
-|------------------|------------------|--------------------------------------------|
-| Redpanda         | 9092, 8081, 8082 | Kafka-compatible broker + Schema Registry  |
-| Redpanda Console | 8080             | Web UI for topics, messages, consumers     |
-| RisingWave       | 4566, 5691       | Streaming SQL engine (Postgres wire)       |
-| Workspace        | -                | Python 3.12 + uv + rpk + psql              |
+| Service              | Port (forwarded) | Purpose                                              |
+|----------------------|------------------|------------------------------------------------------|
+| Redpanda             | 9092, 8081, 8082 | Kafka-compatible broker + Schema Registry            |
+| Redpanda Console     | 8080             | Web UI for topics, messages, consumers               |
+| RisingWave           | 4566, 5691       | Streaming SQL engine (Postgres wire)                 |
+| Redpanda Connect     | -                | Bluesky firehose → topic `bluesky` (opt-in profile)  |
+| Workspace            | 2718             | Python 3.12 + uv + rpk + psql + DuckDB + Marimo      |
 
 The machine is configured for **4 CPUs / 16 GB RAM**, which is the smallest
 Codespaces size that comfortably runs all three services.
@@ -86,13 +87,68 @@ psql -h risingwave -p 4566 -d dev -U root \
     -c "SELECT * FROM clicks_per_minute ORDER BY window_start DESC LIMIT 10;"
 ```
 
+## Bluesky firehose (opt-in)
+
+The compose stack ships a [Redpanda Connect](https://docs.redpanda.com/redpanda-connect/)
+container that subscribes to the public **Bluesky Jetstream** WebSocket and
+forwards every post into the `bluesky` Kafka topic. It is gated behind the
+`bluesky` Compose profile so that it does not auto-start (the firehose pushes
+~50–100 events/s and would fill the broker volume otherwise).
+
+Inside the Codespace terminal:
+
+```bash
+# Start the firehose
+docker compose -f streaming/docker-compose.yml --profile bluesky up -d redpanda-connect
+
+# Wire RisingWave to the topic and create the demo views
+psql -h risingwave -p 4566 -d dev -U root -f streaming/examples/bluesky_demo.sql
+
+# Watch posts roll in
+psql -h risingwave -p 4566 -d dev -U root \
+    -c "SELECT * FROM posts_per_minute ORDER BY window_start DESC LIMIT 5;"
+
+# Stop the firehose when done
+docker compose -f streaming/docker-compose.yml --profile bluesky stop redpanda-connect
+```
+
+## DuckDB + Marimo
+
+The workspace image includes [DuckDB](https://duckdb.org) and
+[Marimo](https://marimo.io). Marimo notebooks can query RisingWave
+materialized views *as if they were tables* via DuckDB's Postgres extension —
+useful for interactive exploration alongside local Parquet files.
+
+```bash
+uv run --project streaming \
+    marimo edit --host 0.0.0.0 --port 2718 \
+    streaming/notebooks/bluesky_marimo.py
+```
+
+Then open the forwarded port `2718` from the **PORTS** tab. The example
+notebook attaches to RisingWave and pulls live rows from the Bluesky
+materialized views.
+
+## Port labels
+
+The forwarded ports come with friendly labels (e.g. *Redpanda Console*,
+*RisingWave Dashboard*, *Marimo Notebook*) configured via
+`portsAttributes` in [.devcontainer/devcontainer.json](../.devcontainer/devcontainer.json).
+If your existing codespace shows only port numbers, the labels were added
+after it was built — run **Codespaces: Rebuild Container** from the command
+palette (`F1`) to pick them up. You can also relabel ad-hoc by right-clicking
+a port row → *Set Port Label*.
+
 ## Files
 
-- [docker-compose.yml](docker-compose.yml) — Redpanda + Console + RisingWave
-- [pyproject.toml](pyproject.toml) — uv-managed Python deps
+- [docker-compose.yml](docker-compose.yml) — Redpanda + Console + RisingWave + Connect
+- [pyproject.toml](pyproject.toml) — uv-managed Python deps (incl. DuckDB, Marimo)
+- [connect/bluesky.yaml](connect/bluesky.yaml) — Redpanda Connect pipeline (Jetstream → Kafka)
 - [examples/producer.py](examples/producer.py) — Faker → Redpanda
 - [examples/consumer.py](examples/consumer.py) — Redpanda → stdout
-- [examples/risingwave_demo.sql](examples/risingwave_demo.sql) — source + materialized views
+- [examples/risingwave_demo.sql](examples/risingwave_demo.sql) — clicks source + materialized views
+- [examples/bluesky_demo.sql](examples/bluesky_demo.sql) — Bluesky source + materialized views
+- [notebooks/bluesky_marimo.py](notebooks/bluesky_marimo.py) — Marimo + DuckDB → RisingWave demo
 
 ## Running locally (without Codespaces)
 

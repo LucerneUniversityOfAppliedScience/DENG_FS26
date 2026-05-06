@@ -64,6 +64,16 @@ services:
       retries: 12
       start_period: 30s
 
+  redpanda-connect:
+    build:
+      context: ./connect
+    container_name: redpanda-connect
+    profiles: ["bluesky"]
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   redpanda-data:
   risingwave-data:

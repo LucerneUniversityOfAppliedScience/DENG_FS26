@@ -1,9 +1,6 @@
 {
     "name": "DENG Streaming",
-    "dockerComposeFile": [
-        "docker-compose.yml",
-        "../streaming/docker-compose.yml"
-    ],
+    "dockerComposeFile": "docker-compose.yml",
     "service": "workspace",
     "workspaceFolder": "/workspaces/DENG_FS26",
     "hostRequirements": {
@@ -16,7 +13,8 @@
         4566,
         5691,
         9092,
-        8081
+        8081,
+        2718
     ],
     "portsAttributes": {
         "8080": {
@@ -34,6 +32,9 @@
         },
         "8081": {
             "label": "Schema Registry"
+        },
+        "2718": {
+            "label": "Marimo Notebook"
         }
     },
     "postCreateCommand": "cd streaming && uv sync",
