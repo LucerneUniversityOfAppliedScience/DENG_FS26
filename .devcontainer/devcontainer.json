@@ -9,32 +9,20 @@
         "storage": "32gb"
     },
     "forwardPorts": [
-        8080,
-        4566,
-        5691,
         9092,
         8081,
-        2718
+        8888
     ],
     "portsAttributes": {
-        "8080": {
-            "label": "Redpanda Console",
-            "onAutoForward": "openPreview"
-        },
-        "5691": {
-            "label": "RisingWave Dashboard"
-        },
-        "4566": {
-            "label": "RisingWave SQL (psql)"
-        },
         "9092": {
             "label": "Redpanda Kafka API"
         },
         "8081": {
-            "label": "Schema Registry"
+            "label": "Flink Web UI"
         },
-        "2718": {
-            "label": "Marimo Notebook"
+        "8888": {
+            "label": "Dinky",
+            "onAutoForward": "openPreview"
         }
     },
     "features": {

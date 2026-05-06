@@ -9,9 +9,6 @@ services:
       - start
       - --kafka-addr=internal://0.0.0.0:29092,external://0.0.0.0:9092
       - --advertise-kafka-addr=internal://redpanda:29092,external://localhost:9092
-      - --pandaproxy-addr=internal://0.0.0.0:28082,external://0.0.0.0:8082
-      - --advertise-pandaproxy-addr=internal://redpanda:28082,external://localhost:8082
-      - --schema-registry-addr=internal://0.0.0.0:8081,external://0.0.0.0:18081
       - --rpc-addr=redpanda:33145
       - --advertise-rpc-addr=redpanda:33145
       - --mode=dev-container
@@ -19,9 +16,6 @@ services:
       - --default-log-level=info
     ports:
       - "9092:9092"
-      - "8081:8081"
-      - "8082:8082"
-      - "9644:9644"
     volumes:
       - redpanda-data:/var/lib/redpanda/data
     healthcheck:
@@ -30,39 +24,6 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
-
-  redpanda-console:
-    image: redpandadata/console:v2.8.2
-    container_name: redpanda-console
-    environment:
-      KAFKA_BROKERS: redpanda:29092
-      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
-      KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
-      REDPANDA_ADMINAPI_ENABLED: "true"
-      REDPANDA_ADMINAPI_URLS: http://redpanda:9644
-    ports:
-      - "8080:8080"
-    depends_on:
-      redpanda:
-        condition: service_healthy
-
-  risingwave:
-    image: risingwavelabs/risingwave:v2.1.2
-    container_name: risingwave
-    command: ["single_node"]
-    environment:
-      RW_TELEMETRY_TYPE: disabled
-    ports:
-      - "4566:4566"
-      - "5691:5691"
-    volumes:
-      - risingwave-data:/root/.risingwave
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'cat < /dev/tcp/localhost/4566'"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 30s
 
   redpanda-connect:
     build:
@@ -74,6 +35,44 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  flink-jobmanager:
+    build:
+      context: ./flink
+    container_name: flink-jobmanager
+    command: jobmanager
+    ports:
+      - "8081:8081"
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        rest.flamegraph.enabled: true
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  flink-taskmanager:
+    build:
+      context: ./flink
+    container_name: flink-taskmanager
+    command: taskmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 4
+    depends_on:
+      - flink-jobmanager
+
+  dinky:
+    image: dinkydocker/dinky-standalone-server:1.2.3-flink1.20
+    container_name: dinky
+    ports:
+      - "8888:8888"
+    environment:
+      - FLINK_VERSION=1.20
+    depends_on:
+      - flink-jobmanager
+
 volumes:
   redpanda-data:
-  risingwave-data:

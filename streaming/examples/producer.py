@@ -28,10 +28,13 @@ def main() -> None:
     fake = Faker()
     producer = Producer({"bootstrap.servers": BROKERS, "linger.ms": 50})
 
-    print(f"producing to {TOPIC} on {BROKERS} at ~{RATE_PER_SECOND}/s for {DURATION_SECONDS}s")
+    print(f"producing to {TOPIC} on {BROKERS} at ~{RATE_PER_SECOND}/s for {DURATION_SECONDS}s", flush=True)
     sleep_between = 1.0 / RATE_PER_SECOND
-    end = time.time() + DURATION_SECONDS
+    start = time.time()
+    end = start + DURATION_SECONDS
     sent = 0
+    last_tick = start
+    last_sent = 0
 
     while time.time() < end:
         event = {
@@ -49,8 +52,16 @@ def main() -> None:
         sent += 1
         time.sleep(sleep_between)
 
+        now = time.time()
+        if now - last_tick >= 1.0:
+            elapsed = int(now - start)
+            rate = sent - last_sent
+            print(f"  t+{elapsed:>3}s  sent={sent:>6}  rate={rate}/s", flush=True)
+            last_tick = now
+            last_sent = sent
+
     producer.flush(10)
-    print(f"done — sent {sent} events")
+    print(f"done — sent {sent} events", flush=True)
 
 
 if __name__ == "__main__":
