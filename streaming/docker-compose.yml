@@ -25,6 +25,17 @@ services:
       retries: 10
       start_period: 20s
 
+  redpanda-console:
+    image: redpandadata/console:v2.8.2
+    container_name: redpanda-console
+    environment:
+      KAFKA_BROKERS: redpanda:29092
+    ports:
+      - "8080:8080"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
   redpanda-connect:
     build:
       context: ./connect

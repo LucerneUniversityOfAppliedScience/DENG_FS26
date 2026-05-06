@@ -10,6 +10,7 @@
     },
     "forwardPorts": [
         9092,
+        8080,
         8081,
         8888
     ],
@@ -17,12 +18,15 @@
         "9092": {
             "label": "Redpanda Kafka API"
         },
+        "8080": {
+            "label": "Redpanda Console",
+            "onAutoForward": "openPreview"
+        },
         "8081": {
             "label": "Flink Web UI"
         },
         "8888": {
-            "label": "Dinky",
-            "onAutoForward": "openPreview"
+            "label": "Dinky"
         }
     },
     "features": {
