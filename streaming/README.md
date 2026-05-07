@@ -53,6 +53,35 @@ cells. If everything prints "OK", you're ready for the exercises.
 Detailed walk-through and troubleshooting in
 [01_setup/README.md](01_setup/README.md).
 
+## Step 4 — Tell Dinky where Flink lives (only for the Flink track)
+
+You can skip this until you start the Flink track
+([03_exercise/exercise_07_flink.md](03_exercise/exercise_07_flink.md)).
+
+1. Open **Dinky** (port `8888` in *PORTS*). On first login pick any
+   password.
+2. Top menu: **Registration Center** → side menu: **Cluster** →
+   **Cluster Instance** (⚠️ *not* "Cluster Config" — that's for Yarn).
+3. Click **+ Add**. A *Create Cluster Instance* dialog opens. Fill in:
+
+   | Field | Value |
+   |---|---|
+   | **Name** | `deng` (any short name) |
+   | **Alias** | `deng` (or blank) |
+   | **Type** | **`Standalone`** |
+   | **JobManager HA Address** | `flink-jobmanager:8081` |
+   | **Note** | blank |
+
+   The address must be `flink-jobmanager:8081` — that's the Docker
+   service name. **Don't use `localhost`** — Dinky runs inside its own
+   container and would only see itself.
+
+4. Click **Save**. The instance should appear with a green **Normal**
+   status indicator.
+
+Full walkthrough with screenshots-worth of detail:
+[01_setup/dinky_guide.md](01_setup/dinky_guide.md).
+
 ## What's where
 
 - [01_setup/](01_setup/) — kernel selection, smoke test, Dinky guide.
