@@ -2,7 +2,7 @@
     "name": "DENG Streaming",
     "dockerComposeFile": "docker-compose.yml",
     "service": "workspace",
-    "workspaceFolder": "/workspaces/DENG_FS26",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
     "hostRequirements": {
         "cpus": 4,
         "memory": "16gb",
@@ -32,11 +32,11 @@
     "features": {
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
     },
-    "postCreateCommand": "cd streaming && uv sync && grep -q 'streaming/.venv/bin/activate' /root/.bashrc || echo 'source /workspaces/DENG_FS26/streaming/.venv/bin/activate' >> /root/.bashrc",
+    "postCreateCommand": "cd streaming && uv sync && grep -q 'streaming/.venv/bin/activate' /root/.bashrc || echo \"source ${containerWorkspaceFolder}/streaming/.venv/bin/activate\" >> /root/.bashrc",
     "customizations": {
         "vscode": {
             "settings": {
-                "python.defaultInterpreterPath": "/workspaces/DENG_FS26/streaming/.venv/bin/python",
+                "python.defaultInterpreterPath": "${containerWorkspaceFolder}/streaming/.venv/bin/python",
                 "python.terminal.activateEnvironment": true
             },
             "extensions": [
