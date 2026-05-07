@@ -43,6 +43,9 @@ At the bottom of VS Code, click the **PORTS** tab. You'll see a list:
 Hover any row → click the small **globe icon** ("Open in Browser") or the
 **magnifier icon** ("Preview in Editor"). Both work.
 
+<img src="./assets/ports_tab.png" style="width: 100%; height: auto;" />
+
+
 ## Step 3 — Try the smoke test
 
 Open a terminal in VS Code (menu *Terminal → New Terminal*) and paste these
@@ -108,10 +111,11 @@ docker compose -f streaming/docker-compose.yml --profile bluesky stop redpanda-c
 
 ## What's where
 
-- [week06_kafka/](week06_kafka/) — **Week 06 exercises**: Python producers
-  and consumers, partitioning, consumer groups
-- [week07_Flink/](week07_Flink/) — **Week 07 exercises**: Flink SQL on the
-  Bluesky firehose (windows, sessions, filters)
+- [demo/](demo/) — minimal working notebooks for producer and consumer
+- [exercises/](exercises/) — progressive Kafka notebooks (`exercise_produce_*`,
+  `exercise_consume_*`) and the Flink SQL exercises (`flink_exercises.md`).
+  Start at [exercises/README.md](exercises/README.md).
+- [solutions/](solutions/) — reference answers for every exercise
 - [docker-compose.yml](docker-compose.yml) — defines all the running programs
 - [pyproject.toml](pyproject.toml) — Python tool list (kafka client +
   notebook kernel)
