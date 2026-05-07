@@ -1,20 +1,165 @@
-# Flink SQL — Progressive Exercises
+# Flink SQL on the Bluesky Firehose
 
-These exercises build on the Bluesky setup from
-[../README.md](../README.md). All SQL is executed in **Dinky**
-(Data Studio → new FlinkSQL task, cluster `local-flink`).
+## Background
 
-**Prerequisites:**
-- The Bluesky stream is running:
-  ```bash
-  docker compose -f streaming/docker-compose.yml --profile bluesky up -d redpanda-connect
-  ```
-- The `bluesky_posts` source table from the README's Step 3 has been created.
-- The Flink cluster is registered in Dinky and shows status **Normal**.
+[Bluesky](https://bsky.app) is a decentralised social network similar to
+X/Twitter. Every public post is published in real time over a free,
+unauthenticated WebSocket API called **Jetstream** — no API key, no rate
+limit. That makes it an ideal data source for learning stream processing:
+real, messy, multilingual data flowing at ~50–100 events/second.
+
+In this track you'll:
+
+1. Pipe the live Bluesky firehose into a Redpanda topic.
+2. Define a Flink SQL table over that topic.
+3. Run streaming queries that filter, window and aggregate posts.
+4. Write transformed results back to new Redpanda topics.
+
+### Architecture
+
+```
+Bluesky Jetstream (public WebSocket)
+        │
+        ▼
+┌──────────────────┐      ┌──────────────────┐
+│ Redpanda Connect │─────▶│     Redpanda     │
+│  (bluesky.yaml)  │      │  topic: bluesky  │
+└──────────────────┘      └────────┬─────────┘
+                                   │
+                          ┌────────┴─────────┐
+                          ▼                  ▼
+                   ┌──────────────┐   ┌──────────────┐
+                   │  Flink SQL   │   │  Flink SQL   │
+                   │ (filter/win) │   │ (filter/win) │
+                   └───────┬──────┘   └───────┬──────┘
+                           ▼                  ▼
+                    ┌────────────┐     ┌────────────┐
+                    │  Redpanda  │     │  Redpanda  │
+                    │  english   │     │  german    │
+                    └────────────┘     └────────────┘
+```
 
 > **Slots are limited (4 total).** Each running query (`SELECT` or
 > `INSERT INTO`) uses one slot. Stop unused jobs with the red ■ button
 > before starting new ones.
+
+---
+
+## Setup
+
+Do these four steps once. After that, every exercise can re-use the
+`bluesky_posts` source table without re-creating it.
+
+### S1 — Start the Bluesky firehose
+
+In a VS Code terminal:
+
+```bash
+docker compose -f streaming/docker-compose.yml --profile bluesky up -d redpanda-connect
+```
+
+This starts a small service (Redpanda Connect) that subscribes to the
+Bluesky Jetstream WebSocket, flattens each post to a tidy JSON object
+([`streaming/connect/bluesky.yaml`](../connect/bluesky.yaml)) and writes
+it to the Redpanda topic `bluesky`.
+
+Stop it again later with:
+
+```bash
+docker compose -f streaming/docker-compose.yml --profile bluesky stop redpanda-connect
+```
+
+### S2 — Verify in Redpanda Console
+
+Open **Redpanda Console** (port `8080` in the *PORTS* tab) → *Topics* →
+`bluesky`. You should see new messages arriving once a second or two.
+
+### S3 — Register the Flink cluster in Dinky (once per Codespace)
+
+Walked through in [../01_setup/dinky_guide.md](../01_setup/dinky_guide.md).
+Cluster name `local-flink`, JM Address `http://flink-jobmanager:8081`.
+
+### S4 — Create the source table
+
+In Dinky → Data Studio → new FlinkSQL task. Configure:
+- **Cluster:** `local-flink`
+- **Catalog:** `DefaultCatalog` (so the table persists across tasks)
+
+Run this **once**:
+
+```sql
+-- DROP TABLE IF EXISTS bluesky_posts;
+CREATE TABLE IF NOT EXISTS bluesky_posts (
+    did          STRING,
+    time_us      BIGINT,
+    operation    STRING,
+    `text`       STRING,
+    created_at   STRING,
+    langs        ARRAY<STRING>,
+    reply_parent STRING,
+    reply_root   STRING,
+    is_reply     BOOLEAN,
+    embed        STRING,
+    facets       STRING,
+    `timestamp`  STRING,
+    proc_time AS PROCTIME()
+) WITH (
+    'connector' = 'kafka',
+    'topic' = 'bluesky',
+    'properties.bootstrap.servers' = 'redpanda:29092',
+    'scan.startup.mode' = 'latest-offset',
+    'format' = 'json',
+    'json.fail-on-missing-field' = 'false',
+    'json.ignore-parse-errors' = 'true'
+);
+```
+
+> **Why `proc_time AS PROCTIME()`?** Window functions need a time
+> attribute. `PROCTIME()` is the cluster's wall clock when each record
+> is processed. Simpler than event-time + watermarks for these
+> exercises.
+
+### S5 — First sanity-check query
+
+In a new task, run:
+
+```sql
+SELECT `text`, langs, is_reply, created_at FROM bluesky_posts;
+```
+
+Posts appear in the **Result** tab as they arrive. Stop the job (red ■)
+when you've seen enough — it occupies a slot.
+
+### S6 — Tutorial: filter English posts to a new topic
+
+This is the canonical pattern (filter → write back to Kafka) and the
+basis for most exercises. Run it in a new task — *don't* run all the
+later exercises if a slot is occupied here.
+
+```sql
+-- DROP TABLE IF EXISTS bluesky_english;
+CREATE TABLE IF NOT EXISTS bluesky_english (
+    did STRING,
+    `text` STRING,
+    created_at STRING,
+    is_reply BOOLEAN,
+    `timestamp` STRING
+) WITH (
+    'connector' = 'kafka',
+    'topic' = 'bluesky-english',
+    'properties.bootstrap.servers' = 'redpanda:29092',
+    'format' = 'json'
+);
+
+INSERT INTO bluesky_english
+SELECT did, `text`, created_at, is_reply, `timestamp`
+FROM bluesky_posts
+WHERE langs[1] = 'en';
+```
+
+`INSERT INTO` is a **continuous streaming job** — it runs until you stop
+it. Verify in Redpanda Console: the new topic `bluesky-english` should
+appear and fill up. Then stop the job (red ■).
 
 ---
 
