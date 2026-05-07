@@ -16,8 +16,8 @@ inside the cloud computer:
 | **Flink**         | open port **`8081`**     | The "calculator" — runs queries on streaming data         |
 | **Dinky**         | open port **`8888`**     | Web page to write SQL queries and send them to Flink      |
 
-A fifth program, **Redpanda Connect**, is available on demand to pull the
-public Bluesky feed. It only starts when you ask for it (see below).
+A fifth program, **Redpanda Connect**, is available on demand. The
+exercises tell you when to start it.
 
 ## Step 1 — Open the Codespace
 
@@ -87,28 +87,6 @@ time.
    [examples/flink_clicks.sql](examples/flink_clicks.sql), click *Run*.
 4. The result panel shows clicks per page per minute, updating live.
 
-## Bluesky firehose (optional, fun)
-
-Bluesky publishes every public post to a public WebSocket. We can pipe that
-firehose into our Redpanda topic `bluesky` and run Flink SQL on it.
-
-**Start the firehose:**
-
-```bash
-docker compose -f streaming/docker-compose.yml --profile bluesky up -d redpanda-connect
-```
-
-In Redpanda Console, the new topic `bluesky` appears with ~50–100
-messages/second. In Dinky, paste
-[examples/flink_bluesky.sql](examples/flink_bluesky.sql) and run it to count
-posts per minute.
-
-**Stop the firehose** when you're done so it doesn't eat your storage:
-
-```bash
-docker compose -f streaming/docker-compose.yml --profile bluesky stop redpanda-connect
-```
-
 ## What's where
 
 - [demo/](demo/) — minimal working notebooks for producer and consumer
@@ -123,16 +101,12 @@ docker compose -f streaming/docker-compose.yml --profile bluesky stop redpanda-c
   the Kafka connector pre-installed)
 - [dinky/Dockerfile](dinky/Dockerfile) — recipe for the Dinky image (with
   English UI and the Kafka connector)
-- [connect/bluesky.yaml](connect/bluesky.yaml) — pipeline that reads
-  Bluesky and writes to the `bluesky` topic
 - [examples/producer.py](examples/producer.py) — Python script that makes
   fake clicks
 - [examples/consumer.py](examples/consumer.py) — Python script that prints
   messages from a topic
 - [examples/flink_clicks.sql](examples/flink_clicks.sql) — Flink SQL for the
   `clicks` topic
-- [examples/flink_bluesky.sql](examples/flink_bluesky.sql) — Flink SQL for
-  the `bluesky` topic
 
 ## Troubleshooting
 
