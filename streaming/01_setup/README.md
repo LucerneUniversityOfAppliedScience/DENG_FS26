@@ -52,13 +52,17 @@ Code's auto-discovery sometimes misses it. Three ways around it
 
 **Variant 1 — type the path directly**
 
-1. **Select Kernel** → **Select Another Kernel…** → **Python
+1. From a terminal, find your workspace path:
+   ```bash
+   echo "$(pwd | sed 's|/$||')/streaming/.venv/bin/python"
+   ```
+   You'll get something like `/workspaces/DENG_FS26/streaming/.venv/bin/python`
+   (or `/workspaces/DENG_FS26_Fork/...` if you forked the repo under a
+   different name).
+2. **Select Kernel** → **Select Another Kernel…** → **Python
    Environments…** → **Enter interpreter path…**
-2. Paste:
-   ```
-   /workspaces/DENG_FS26/streaming/.venv/bin/python
-   ```
-3. Confirm. The kernel picker now lists this entry — pick it.
+3. Paste the path from step 1 and confirm. The kernel picker now lists
+   this entry — pick it.
 
 **Variant 2 — refresh the discovery cache**
 
@@ -95,7 +99,7 @@ See the dedicated walkthrough: [dinky_guide.md](dinky_guide.md).
 
 | Symptom | Fix |
 |---|---|
-| Notebook says *"Select Kernel"* but no `.venv` is offered | enter the path manually: *Select Another Kernel…* → *Enter interpreter path…* → `/workspaces/DENG_FS26/streaming/.venv/bin/python`. See *Step 2 → If `.venv` doesn't appear*. |
+| Notebook says *"Select Kernel"* but no `.venv` is offered | enter the path manually: *Select Another Kernel…* → *Enter interpreter path…* → `<your-workspace>/streaming/.venv/bin/python`. See *Step 2 → If `.venv` doesn't appear*. |
 | `ModuleNotFoundError: confluent_kafka` | wrong kernel selected. *Select Kernel* → pick the `.venv` one. |
 | `KafkaError{code=_TRANSPORT}` / "Broker not available" | the stack is still starting. Wait, then re-run. `docker ps` shows you which containers are up. |
 | `docker: command not found` | the Codespace was built before docker was added. *F1 → Codespaces: Rebuild Container*. |
