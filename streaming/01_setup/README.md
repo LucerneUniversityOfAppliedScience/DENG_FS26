@@ -41,6 +41,38 @@ Open [smoke_test.ipynb](smoke_test.ipynb).
 
 You only do this once per notebook — VS Code remembers your choice.
 
+### If `.venv` doesn't appear in the list
+
+The venv lives in `streaming/.venv`, not at the workspace root, so VS
+Code's auto-discovery sometimes misses it. Three ways around it
+(**Variant 1** is the most reliable):
+
+**Variant 1 — type the path directly**
+
+1. **Select Kernel** → **Select Another Kernel…** → **Python
+   Environments…** → **Enter interpreter path…**
+2. Paste:
+   ```
+   /workspaces/DENG_FS26/streaming/.venv/bin/python
+   ```
+3. Confirm. The kernel picker now lists this entry — pick it.
+
+**Variant 2 — refresh the discovery cache**
+
+`F1` (or `Cmd/Ctrl+Shift+P`) → `Python: Clear Cache and Reload Window`
+→ Enter. VS Code re-scans and now finds the venv.
+
+**Variant 3 — verify the venv exists at all**
+
+If even *Variant 1* fails with "interpreter not found", the venv was
+never created. From a terminal:
+
+```bash
+ls -la streaming/.venv/bin/python   # should show a symlink to /usr/local/bin/python3
+# if missing:
+cd streaming && uv sync
+```
+
 ## Step 3 — Run the smoke test
 
 Run all cells in [smoke_test.ipynb](smoke_test.ipynb). It:
@@ -60,7 +92,7 @@ See the dedicated walkthrough: [dinky_guide.md](dinky_guide.md).
 
 | Symptom | Fix |
 |---|---|
-| Notebook says *"Select Kernel"* but no `.venv` is offered | from a terminal: `cd streaming && uv sync`. Then click *Select Kernel* again — VS Code re-scans. |
+| Notebook says *"Select Kernel"* but no `.venv` is offered | enter the path manually: *Select Another Kernel…* → *Enter interpreter path…* → `/workspaces/DENG_FS26/streaming/.venv/bin/python`. See *Step 2 → If `.venv` doesn't appear*. |
 | `ModuleNotFoundError: confluent_kafka` | wrong kernel selected. *Select Kernel* → pick the `.venv` one. |
 | `KafkaError{code=_TRANSPORT}` / "Broker not available" | the stack is still starting. Wait, then re-run. `docker ps` shows you which containers are up. |
 | `docker: command not found` | the Codespace was built before docker was added. *F1 → Codespaces: Rebuild Container*. |
