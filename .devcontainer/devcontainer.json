@@ -1,0 +1,49 @@
+{
+    "name": "DENG Streaming",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "workspace",
+    "workspaceFolder": "/workspaces/DENG_FS26",
+    "hostRequirements": {
+        "cpus": 4,
+        "memory": "16gb",
+        "storage": "32gb"
+    },
+    "forwardPorts": [
+        9092,
+        8080,
+        8081,
+        8888
+    ],
+    "portsAttributes": {
+        "9092": {
+            "label": "Redpanda Kafka API"
+        },
+        "8080": {
+            "label": "Redpanda Console",
+            "onAutoForward": "openPreview"
+        },
+        "8081": {
+            "label": "Flink Web UI"
+        },
+        "8888": {
+            "label": "Dinky"
+        }
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+    },
+    "postCreateCommand": "cd streaming && uv sync && grep -q 'streaming/.venv/bin/activate' /root/.bashrc || echo 'source /workspaces/DENG_FS26/streaming/.venv/bin/activate' >> /root/.bashrc",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "python.defaultInterpreterPath": "/workspaces/DENG_FS26/streaming/.venv/bin/python",
+                "python.terminal.activateEnvironment": true
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-toolsai.jupyter"
+            ]
+        }
+    }
+}

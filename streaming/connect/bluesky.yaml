@@ -1,0 +1,30 @@
+input:
+  websocket:
+    url: wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post
+
+pipeline:
+  processors:
+    - mapping: |
+        root.did          = this.did
+        root.time_us      = this.time_us
+        root.operation    = this.commit.operation
+        root.text         = this.commit.record.text
+        root.created_at   = this.commit.record.createdAt
+        root.langs        = this.commit.record.langs
+        root.reply_parent = this.commit.record.reply.parent.uri | null
+        root.reply_root   = this.commit.record.reply.root.uri | null
+        root.is_reply     = this.commit.record.reply != null
+        root.embed        = this.commit.record.embed | null
+        root.facets       = this.commit.record.facets | null
+        root.timestamp    = now()
+
+output:
+  kafka_franz:
+    seed_brokers:
+      - redpanda:29092
+    topic: bluesky
+    compression: snappy
+
+logger:
+  level: INFO
+  format: logfmt

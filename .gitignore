@@ -208,3 +208,7 @@ __marimo__/
 databricks/databricks.yml
 CLAUDE.md
 .claude/settings.json
+
+# Streaming module
+streaming/.venv/
+streaming/.python-version

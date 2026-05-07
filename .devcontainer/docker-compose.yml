@@ -1,0 +1,17 @@
+name: deng-streaming
+
+include:
+  - ../streaming/docker-compose.yml
+
+services:
+  workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ../..:/workspaces:cached
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: sleep infinity
+    depends_on:
+      redpanda:
+        condition: service_healthy

@@ -1,0 +1,98 @@
+name: deng-streaming
+
+services:
+  redpanda:
+    image: redpandadata/redpanda:v24.3.5
+    container_name: redpanda
+    command:
+      - redpanda
+      - start
+      - --kafka-addr=internal://0.0.0.0:29092,external://0.0.0.0:9092
+      - --advertise-kafka-addr=internal://redpanda:29092,external://localhost:9092
+      - --rpc-addr=redpanda:33145
+      - --advertise-rpc-addr=redpanda:33145
+      - --mode=dev-container
+      - --smp=1
+      - --default-log-level=info
+    ports:
+      - "9092:9092"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster info -X brokers=localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  redpanda-console:
+    image: redpandadata/console:v2.8.2
+    container_name: redpanda-console
+    environment:
+      KAFKA_BROKERS: redpanda:29092
+    ports:
+      - "8080:8080"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  redpanda-connect:
+    build:
+      context: ./connect
+    container_name: redpanda-connect
+    profiles: ["bluesky"]
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    restart: unless-stopped
+
+  flink-jobmanager:
+    build:
+      context: ./flink
+    container_name: flink-jobmanager
+    command: jobmanager
+    ports:
+      - "8081:8081"
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        rest.flamegraph.enabled: true
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  flink-taskmanager:
+    build:
+      context: ./flink
+    container_name: flink-taskmanager
+    command: taskmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 4
+    depends_on:
+      - flink-jobmanager
+
+  dinky:
+    build:
+      context: ./dinky
+    container_name: dinky
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if ! grep -q 'DINKY_LOCALE_INIT' /opt/dinky/config/static/index.html; then
+          sed -i 's|<head>|<head><script>/*DINKY_LOCALE_INIT*/if(!localStorage.getItem("umi_locale")){localStorage.setItem("umi_locale","en-US");}</script>|' /opt/dinky/config/static/index.html
+        fi
+        exec ./bin/auto.sh startOnPending
+    environment:
+      - DB_ACTIVE=h2
+      - FLINK_VERSION=1.20
+    ports:
+      - "8888:8888"
+    depends_on:
+      - flink-jobmanager
+
+volumes:
+  redpanda-data:
