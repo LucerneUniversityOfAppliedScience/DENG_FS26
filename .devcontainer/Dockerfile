@@ -1,9 +1,13 @@
-FROM mcr.microsoft.com/devcontainers/python:3.12-bookworm
+# Docker Hub instead of mcr.microsoft.com to avoid the AFD 403 blocks that
+# occasionally hit Codespaces. The official Python image is Debian-based,
+# so the apt steps below are unchanged.
+FROM python:3.12-bookworm
 
 ARG RPK_VERSION=v24.3.5
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        git \
         postgresql-client \
         unzip \
         curl \
@@ -23,8 +27,4 @@ RUN ARCH=$(dpkg --print-architecture) \
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 
-ENV KAFKA_BROKERS=redpanda:29092 \
-    RISINGWAVE_HOST=risingwave \
-    RISINGWAVE_PORT=4566 \
-    RISINGWAVE_USER=root \
-    RISINGWAVE_DB=dev
+ENV KAFKA_BROKERS=redpanda:29092

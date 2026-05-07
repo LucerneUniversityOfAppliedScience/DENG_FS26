@@ -108,8 +108,13 @@ docker compose -f streaming/docker-compose.yml --profile bluesky stop redpanda-c
 
 ## What's where
 
+- [week06_kafka/](week06_kafka/) — **Week 06 exercises**: Python producers
+  and consumers, partitioning, consumer groups
+- [week07_Flink/](week07_Flink/) — **Week 07 exercises**: Flink SQL on the
+  Bluesky firehose (windows, sessions, filters)
 - [docker-compose.yml](docker-compose.yml) — defines all the running programs
-- [pyproject.toml](pyproject.toml) — Python tool list for the click producer
+- [pyproject.toml](pyproject.toml) — Python tool list (kafka client +
+  notebook kernel)
 - [flink/Dockerfile](flink/Dockerfile) — recipe for the Flink image (with
   the Kafka connector pre-installed)
 - [dinky/Dockerfile](dinky/Dockerfile) — recipe for the Dinky image (with
