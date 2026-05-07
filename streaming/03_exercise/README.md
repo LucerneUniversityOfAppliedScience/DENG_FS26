@@ -30,7 +30,7 @@ first.
 
 ## Track B — Flink SQL on the Bluesky firehose
 
-[flink_exercises.md](flink_exercises.md) — progressive Flink SQL
+[exercise_07_flink.md](exercise_07_flink.md) — progressive Flink SQL
 exercises (filter → tumble → hop → session → reply rate → keyword)
 running on the live Bluesky public-post firehose.
 

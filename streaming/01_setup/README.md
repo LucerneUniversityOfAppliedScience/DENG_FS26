@@ -88,7 +88,7 @@ If everything prints "OK", you're ready for the exercises.
 
 ## Step 4 — One-time Dinky setup
 
-Needed only when you start [the Flink track](../03_exercise/flink_exercises.md).
+Needed only when you start [the Flink track](../03_exercise/exercise_07_flink.md).
 See the dedicated walkthrough: [dinky_guide.md](dinky_guide.md).
 
 ## Troubleshooting

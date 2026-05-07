@@ -60,7 +60,7 @@ Detailed walk-through and troubleshooting in
 - [02_demo/](02_demo/) — minimal working notebooks for producer and consumer
 - [03_exercise/](03_exercise/) — six progressive Kafka notebooks
   (`exercise_01_produce_single` → `exercise_06_consume_aggregate`) plus
-  the Flink SQL track (`flink_exercises.md`)
+  the Flink SQL track (`exercise_07_flink.md`)
 - [04_solution/](04_solution/) — reference answers for every exercise
 - [docker-compose.yml](docker-compose.yml) — defines all the running programs
 - [pyproject.toml](pyproject.toml) — Python tool list (kafka client +

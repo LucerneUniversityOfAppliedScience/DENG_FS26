@@ -1,6 +1,6 @@
 # Flink SQL — Solutions
 
-Reference answers for [exercises/flink_exercises.md](../03_exercise/flink_exercises.md).
+Reference answers for [exercises/exercise_07_flink.md](../03_exercise/exercise_07_flink.md).
 
 ---
 
@@ -95,14 +95,14 @@ GROUP BY TUMBLE(proc_time, INTERVAL '5' MINUTES);
 ## Exercise 07 — keyword filter
 
 ```sql
-INSERT INTO bsc_eds_posts
+INSERT INTO deng_post_table
 SELECT did, `text`, created_at, `timestamp`
 FROM bluesky_posts
-WHERE `text` LIKE '%Bsc_EDS%';
+WHERE `text` LIKE '%HSLU_Flink%';
 ```
 
 > **How it works.** The Bluesky Jetstream WebSocket emits *all* public posts.
 > Redpanda Connect flattens and writes them to the `bluesky` topic. Your
-> Flink SQL job continuously filters for `Bsc_EDS` and re-publishes matches
-> to `bsc-eds-posts`. When you post on bsky.app, your message rides this
+> Flink SQL job continuously filters for `HSLU_Flink` and re-publishes matches
+> to `deng-post`. When you post on bsky.app, your message rides this
 > exact pipeline in real time.

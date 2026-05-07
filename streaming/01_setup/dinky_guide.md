@@ -5,7 +5,7 @@ SQL in the browser, it ships the job to the Flink cluster, and shows you
 results.
 
 You only need Dinky for the **Flink track**
-([../03_exercise/flink_exercises.md](../03_exercise/flink_exercises.md)).
+([../03_exercise/exercise_07_flink.md](../03_exercise/exercise_07_flink.md)).
 The Kafka notebooks don't use it.
 
 ## Open Dinky
@@ -24,23 +24,37 @@ welcome dialogs. You'll land in the Dinky home page.
 
 Dinky needs to know where to send your SQL jobs.
 
+> ⚠️ **Watch the submenu name.** Under *Registration Center → Cluster*
+> there are **two** options that look similar:
+>
+> | Submenu | Use it for | Use it here? |
+> |---|---|---|
+> | **Cluster Instance** (a.k.a. *Flink Instance*) | a long-running Flink session you connect to | ✅ **Yes** |
+> | **Cluster Config** | Yarn / Kubernetes / Application-mode jobs (Hadoop config, Flink Lib Path, etc.) | ❌ no |
+>
+> If the dialog you see says *"Yarn (Pre-Job/Application)"* and asks for
+> Hadoop config → you're in the wrong place. Go back and pick
+> *Cluster Instance* instead.
+
 1. Top menu: **Registration Center**
-2. Side menu: **Cluster** → **Flink Instance**
-3. Click **+ Add**
+2. Side menu: **Cluster** → **Cluster Instance** (sometimes labelled
+   *Flink Instance*)
+3. Click **+ Add** (or *Create*)
 4. Fill in:
 
    | Field | Value |
    |---|---|
    | **Name** | `local-flink` |
-   | **Type** | `Yarn Session` is wrong — pick **`Standalone`** |
+   | **Type** | **`Standalone`** (not Yarn!) |
    | **JobManager HA address** | `http://flink-jobmanager:8081` |
    | (everything else) | leave at default |
 
-5. Click **Test** — you should get a green ✓.
-6. Click **Submit**.
+5. Click **Heartbeat** / **Test** — you should get a green ✓.
+6. Click **Submit** / **Save**.
 
 The cluster status indicator should turn **green / Normal**. If it stays
-red, double-check the JobManager URL.
+red, double-check the JobManager URL — it must be `http://flink-jobmanager:8081`
+(Docker DNS), *not* `localhost:8081`.
 
 ## Step 2 — Open Data Studio and create a task
 

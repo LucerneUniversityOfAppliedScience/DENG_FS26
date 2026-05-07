@@ -418,21 +418,21 @@ Hints:
 
 ## Exercise 07 — bonus: see your own post arrive
 
-**Goal:** filter the firehose for the keyword `Bsc_EDS`, post that string from
+**Goal:** filter the firehose for the keyword `HSLU_Flink`, post that string from
 your own Bluesky account, and watch it appear in your Flink output within
 seconds.
 
 ### Step 1 — sink (once)
 
 ```sql
-CREATE TABLE IF NOT EXISTS bsc_eds_posts (
+CREATE TABLE IF NOT EXISTS deng_post_table (
     did STRING,
     `text` STRING,
     created_at STRING,
     `timestamp` STRING
 ) WITH (
     'connector' = 'kafka',
-    'topic' = 'bsc-eds-posts',
+    'topic' = 'deng-post',
     'properties.bootstrap.servers' = 'redpanda:29092',
     'scan.startup.mode' = 'earliest-offset',
     'format' = 'json'
@@ -442,10 +442,10 @@ CREATE TABLE IF NOT EXISTS bsc_eds_posts (
 ### Step 2 — filter job
 
 Hints:
-- `WHERE \`text\` LIKE '%Bsc_EDS%'`
+- `WHERE \`text\` LIKE '%HSLU_Flink%'`
 
 ```sql
--- TODO: INSERT INTO bsc_eds_posts SELECT ... FROM bluesky_posts WHERE ...
+-- TODO: INSERT INTO deng_post_table SELECT ... FROM bluesky_posts WHERE ...
 ```
 
 ### Step 3 — observe
@@ -453,16 +453,16 @@ Hints:
 In a new task (after stopping the INSERT to free a slot):
 
 ```sql
-SELECT * FROM bsc_eds_posts;
+SELECT * FROM deng_post_table;
 ```
 
 ### Step 4 — post on Bluesky
 
 1. If you don't have an account, create one at <https://bsky.app>.
-2. Write a post containing the literal string `Bsc_EDS`. Example:
-   > Testing stream processing for **Bsc_EDS** — hello from Flink!
+2. Write a post containing the literal string `HSLU_Flink`. Example:
+   > Testing stream processing for **HSLU_Flink** — hello from Flink!
 3. Re-start the `INSERT` job, then `SELECT` again. Your post should appear
-   within seconds. The topic `bsc-eds-posts` in Redpanda Console will also
+   within seconds. The topic `deng-post` in Redpanda Console will also
    contain it.
 
 **Questions**
