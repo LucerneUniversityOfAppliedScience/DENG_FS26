@@ -1,7 +1,7 @@
 # Flink SQL — Progressive Exercises
 
 These exercises build on the Bluesky setup from
-[week07_Flink/README.md](../README.md). All SQL is executed in **Dinky**
+[../README.md](../README.md). All SQL is executed in **Dinky**
 (Data Studio → new FlinkSQL task, cluster `local-flink`).
 
 **Prerequisites:**

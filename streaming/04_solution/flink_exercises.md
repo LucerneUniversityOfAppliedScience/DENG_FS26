@@ -1,6 +1,6 @@
 # Flink SQL — Solutions
 
-Reference answers for [exercises/flink_exercises.md](../exercises/flink_exercises.md).
+Reference answers for [exercises/flink_exercises.md](../03_exercise/flink_exercises.md).
 
 ---
 

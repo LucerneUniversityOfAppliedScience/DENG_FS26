@@ -46,54 +46,22 @@ Hover any row → click the small **globe icon** ("Open in Browser") or the
 <img src="./assets/ports_tab.png" style="width: 100%; height: auto;" />
 
 
-## Step 3 — Try the smoke test
+## Step 3 — Run the smoke test
 
-Open a terminal in VS Code (menu *Terminal → New Terminal*) and paste these
-commands one block at a time.
-
-**a) Make sure Redpanda is awake:**
-
-```bash
-rpk cluster info -X brokers=redpanda:29092
-```
-
-**b) Create a topic called `clicks` and produce 60 seconds of fake clicks:**
-
-```bash
-rpk topic create clicks -X brokers=redpanda:29092
-uv run --project streaming streaming/examples/producer.py
-```
-
-The producer prints one line per second so you can watch it work.
-
-**c) Watch the messages live in your terminal** (open a *second* terminal
-for this so the producer keeps running):
-
-```bash
-rpk topic consume clicks -X brokers=redpanda:29092
-```
-
-Press **Ctrl+C** to stop watching.
-
-**d) Or watch them in your browser:** open the **Redpanda Console** (port
-8080) → click the *Topics* menu → click *clicks*. Messages appear in real
-time.
-
-**e) Run a Flink SQL query in Dinky:**
-
-1. Open **Dinky** (port 8888).
-2. First-time setup: leave everything at default → *Next* until done.
-3. Create a new *FlinkSQL* job, paste the contents of
-   [examples/flink_clicks.sql](examples/flink_clicks.sql), click *Run*.
-4. The result panel shows clicks per page per minute, updating live.
+Open [01_setup/smoke_test.ipynb](01_setup/smoke_test.ipynb) and run all
+cells. If everything prints "OK", you're ready for the exercises.
+Detailed walk-through and troubleshooting in
+[01_setup/README.md](01_setup/README.md).
 
 ## What's where
 
-- [demo/](demo/) — minimal working notebooks for producer and consumer
-- [exercises/](exercises/) — progressive Kafka notebooks (`exercise_produce_*`,
-  `exercise_consume_*`) and the Flink SQL exercises (`flink_exercises.md`).
-  Start at [exercises/README.md](exercises/README.md).
-- [solutions/](solutions/) — reference answers for every exercise
+- [01_setup/](01_setup/) — kernel selection, smoke test, Dinky guide.
+  **Start here.**
+- [02_demo/](02_demo/) — minimal working notebooks for producer and consumer
+- [03_exercise/](03_exercise/) — six progressive Kafka notebooks
+  (`exercise_01_produce_single` → `exercise_06_consume_aggregate`) plus
+  the Flink SQL track (`flink_exercises.md`)
+- [04_solution/](04_solution/) — reference answers for every exercise
 - [docker-compose.yml](docker-compose.yml) — defines all the running programs
 - [pyproject.toml](pyproject.toml) — Python tool list (kafka client +
   notebook kernel)
