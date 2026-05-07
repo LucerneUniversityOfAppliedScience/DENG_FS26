@@ -15,10 +15,13 @@ or installed — you don't need to do any of it manually:
 | `rpk` (Redpanda CLI) is on your `$PATH` | baked into the workspace image |
 | Python 3.12 + `uv` are installed | baked into the workspace image |
 | The Python venv with `confluent-kafka`, `faker` and `ipykernel` is created | `cd streaming && uv sync` runs in `postCreateCommand` |
+| New terminals auto-activate the venv (you'll see `(deng-streaming)` in the prompt) | one-line append to `/root/.bashrc` in `postCreateCommand` |
+| VS Code uses `streaming/.venv/bin/python` as the default Python | `python.defaultInterpreterPath` in `devcontainer.json` |
 
 So the kernel for Jupyter is **already there** — `ipykernel` is in
-[`pyproject.toml`](../pyproject.toml). VS Code only needs to be told to
-*use* it.
+[`pyproject.toml`](../pyproject.toml). The first time you open a notebook
+VS Code should pick the right kernel automatically; if not, see
+*Variant 1* below.
 
 ## Step 1 — Verify the cluster is up
 

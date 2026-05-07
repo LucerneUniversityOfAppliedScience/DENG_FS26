@@ -32,12 +32,17 @@
     "features": {
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
     },
-    "postCreateCommand": "cd streaming && uv sync",
+    "postCreateCommand": "cd streaming && uv sync && grep -q 'streaming/.venv/bin/activate' /root/.bashrc || echo 'source /workspaces/DENG_FS26/streaming/.venv/bin/activate' >> /root/.bashrc",
     "customizations": {
         "vscode": {
+            "settings": {
+                "python.defaultInterpreterPath": "/workspaces/DENG_FS26/streaming/.venv/bin/python",
+                "python.terminal.activateEnvironment": true
+            },
             "extensions": [
                 "ms-python.python",
-                "ms-python.vscode-pylance"
+                "ms-python.vscode-pylance",
+                "ms-toolsai.jupyter"
             ]
         }
     }
