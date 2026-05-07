@@ -39,18 +39,24 @@ Dinky needs to know where to send your SQL jobs.
 1. Top menu: **Registration Center**
 2. Side menu: **Cluster** → **Cluster Instance** (sometimes labelled
    *Flink Instance*)
-3. Click **+ Add** (or *Create*)
+3. Click **+ Add** (or *Create*) — a *Create Cluster Instance* dialog
+   opens.
 4. Fill in:
 
    | Field | Value |
    |---|---|
-   | **Name** | `local-flink` |
+   | **Name** | `deng` (any short name) |
+   | **Alias** | `deng` (or leave blank) |
    | **Type** | **`Standalone`** (not Yarn!) |
-   | **JobManager HA address** | `http://flink-jobmanager:8081` |
-   | (everything else) | leave at default |
+   | **JobManager HA Address** | `flink-jobmanager:8081` |
+   | **Note** | leave empty |
 
-5. Click **Heartbeat** / **Test** — you should get a green ✓.
-6. Click **Submit** / **Save**.
+   The address must be `flink-jobmanager:8081` — that's the Docker
+   service name, *not* `localhost`. Dinky runs inside its own container
+   and reaches Flink via the docker network. If the field rejects the
+   value, prefix with `http://`.
+
+5. Click **Save**.
 
 The cluster status indicator should turn **green / Normal**. If it stays
 red, double-check the JobManager URL — it must be `http://flink-jobmanager:8081`
