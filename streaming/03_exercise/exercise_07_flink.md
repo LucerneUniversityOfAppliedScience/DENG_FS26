@@ -77,13 +77,20 @@ Open **Redpanda Console** (port `8080` in the *PORTS* tab) → *Topics* →
 ### S3 — Register the Flink cluster in Dinky (once per Codespace)
 
 Walked through in [../01_setup/dinky_guide.md](../01_setup/dinky_guide.md).
-Cluster name `local-flink`, JM Address `http://flink-jobmanager:8081`.
+Cluster name `deng`, JM Address `flink-jobmanager:8081`, Type `Standalone`.
 
 ### S4 — Create the source table
 
-In Dinky → Data Studio → new FlinkSQL task. Configure:
-- **Cluster:** `local-flink`
-- **Catalog:** `DefaultCatalog` (so the table persists across tasks)
+In Dinky → Data Studio → new FlinkSQL task.
+
+> ⚠️ **For every new task** in this track, set in the right-hand panel:
+>
+> - **Cluster Configuration / Flink Instance** → `deng`
+> - **Catalog** → `DefaultCatalog`
+>
+> Without `DefaultCatalog` your table is invisible to other tasks. Without
+> `deng` the SQL runs in Dinky's local mini-cluster, which has no Kafka
+> connector and your `INSERT INTO` will fail with cryptic errors.
 
 Run this **once**:
 

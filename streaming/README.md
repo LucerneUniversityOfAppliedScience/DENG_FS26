@@ -79,8 +79,17 @@ You can skip this until you start the Flink track
 4. Click **Save**. The instance should appear with a green **Normal**
    status indicator.
 
-Full walkthrough with screenshots-worth of detail:
-[01_setup/dinky_guide.md](01_setup/dinky_guide.md).
+> ⚠️ **Whenever you create a new FlinkSQL task** (Data Studio → +), set
+> in the right-hand panel:
+>
+> - **Cluster Configuration** → `deng`
+> - **Catalog** → `DefaultCatalog`
+>
+> Both are required. The catalog makes `CREATE TABLE` definitions
+> visible across all tasks; the cluster sends jobs to the real Flink
+> with the Kafka connector instead of Dinky's tiny built-in mini-cluster.
+
+Full walkthrough: [01_setup/dinky_guide.md](01_setup/dinky_guide.md).
 
 ## What's where
 

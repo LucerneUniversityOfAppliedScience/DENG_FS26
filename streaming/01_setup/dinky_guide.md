@@ -69,13 +69,21 @@ The actual SQL editor is under **Data Studio** in the top menu.
 1. **Data Studio** → click the **+** in the file tree to create a new
    task.
 2. Pick **FlinkSQL** as the type and give it any name (e.g. `scratch`).
-3. In the right-hand panel set:
-   - **Cluster Configuration** → `local-flink` (the one you registered).
-   - **Catalog** → `DefaultCatalog` (this is what persists `CREATE TABLE`
-     definitions across tasks).
+3. In the right-hand panel set **two** things:
+   - **Cluster Configuration / Flink Instance** → `deng` (the cluster
+     instance you registered in Step 1).
+   - **Catalog** → `DefaultCatalog`.
 
-You only need to do this configuration on each *new* task — once it's
-set, the task remembers it.
+> ⚠️ **You must set BOTH every time you create a new task.** Without
+> them, two failure modes hit you:
+>
+> | Missing setting | What goes wrong |
+> |---|---|
+> | **Catalog ≠ DefaultCatalog** | `CREATE TABLE` succeeds, but the table only lives inside *this* task. Open another task → `Object not found`. With `DefaultCatalog` the table is shared across all tasks of the Codespace. |
+> | **Cluster Configuration not set** | Hitting *Execute* either does nothing or runs the SQL inside Dinky's tiny built-in mini-cluster, which has no Kafka connector. You'll see weird "connector kafka not found" errors. With `deng` selected your job ships to the proper Flink jobmanager that *does* have the connector. |
+>
+> Once set, each task remembers its choice — but new tasks always start
+> blank. **Habituate the check** before you click *Execute*.
 
 ## Step 3 — Run something
 
