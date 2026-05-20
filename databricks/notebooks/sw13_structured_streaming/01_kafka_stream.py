@@ -62,16 +62,24 @@ dbutils.widgets.dropdown("sasl_mechanism",   "SCRAM-SHA-256",
 dbutils.widgets.text("truststore_path",
                      "/Volumes/workspace/landing/files/aiven/ca.pem",
                      "Path to Aiven CA (ca.pem)")
+# Checkpoint location for the live `display()` previews below.
+# On Databricks Free Edition / serverless, implicit temp checkpoints
+# are disabled, so we always pass an explicit one.
+dbutils.widgets.text("checkpoint_root",
+                     "/Volumes/workspace/landing/files/sw13_checkpoints",
+                     "Checkpoint root (writable Volume)")
 
 topic            = dbutils.widgets.get("topic")
 starting_offsets = dbutils.widgets.get("starting_offsets")
 sasl_mechanism   = dbutils.widgets.get("sasl_mechanism")
 truststore_path  = dbutils.widgets.get("truststore_path")
+checkpoint_root  = dbutils.widgets.get("checkpoint_root").rstrip("/")
 
 print(f"Topic            : {topic}")
 print(f"Starting offsets : {starting_offsets}")
 print(f"SASL mechanism   : {sasl_mechanism}")
 print(f"Truststore (CA)  : {truststore_path}")
+print(f"Checkpoint root  : {checkpoint_root}")
 
 # Fail fast if the CA file isn't there — every executor needs to read it.
 import os
@@ -181,7 +189,14 @@ decoded.printSchema()
 # DBTITLE 1,Live preview
 # `display()` renders a streaming DataFrame as a live-updating table.
 # Click the ■ button above the table to stop the query.
-display(decoded)
+#
+# Databricks Free Edition disables implicit temp checkpoints, so we
+# pass an explicit `checkpointLocation`. Each display() needs its own
+# subdirectory — otherwise two queries fight over the same state.
+display(
+    decoded,
+    checkpointLocation=f"{checkpoint_root}/{topic}/_preview_raw",
+)
 
 # COMMAND ----------
 
@@ -252,7 +267,10 @@ parsed = (
         )
 )
 
-display(parsed)
+display(
+    parsed,
+    checkpointLocation=f"{checkpoint_root}/{topic}/_preview_parsed",
+)
 
 # COMMAND ----------
 
@@ -266,7 +284,7 @@ display(parsed)
 # MAGIC (parsed.writeStream
 # MAGIC     .format("delta")
 # MAGIC     .option("checkpointLocation",
-# MAGIC             f"/Volumes/workspace/landing/files/sw13_checkpoints/{topic}")
+# MAGIC             f"{checkpoint_root}/{topic}/bronze")
 # MAGIC     .outputMode("append")
 # MAGIC     .toTable(f"workspace.bronze.{topic.replace('-', '_')}_raw")
 # MAGIC )
