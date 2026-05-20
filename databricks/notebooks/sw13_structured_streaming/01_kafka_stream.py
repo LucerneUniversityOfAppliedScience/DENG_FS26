@@ -305,7 +305,7 @@ display(spark.sql("""
 # COMMAND ----------
 
 # DBTITLE 1,Avro parsing for logistics_data_gen
-from pyspark.sql.functions import from_unixtime, to_timestamp
+from pyspark.sql.functions import from_unixtime, to_timestamp, expr
 from pyspark.sql.avro.functions import from_avro
 
 # Avro schema as a JSON string — strip the "examples" metadata that
@@ -327,11 +327,17 @@ logistics_avro_schema = """
 }
 """
 
-# `value` arrives as binary from Kafka — keep it that way for from_avro
-# (do NOT cast to STRING first, that's what `decoded` did for previewing).
-value_binary = raw_stream["value"]
+# Aiven framing: every message starts with a 5-byte Confluent prefix
+#   byte 0:    0x00 magic byte
+#   bytes 1-4: 4-byte big-endian Avro schema id
+# from_avro chokes on those bytes with
+#   "Malformed data. Length is negative: -NN"
+# so we strip them with substring(value, 6, length(value) - 5).
+# `mode=PERMISSIVE` is a safety net — a single bad message returns nulls
+# instead of killing the whole streaming query.
 
-# --- variant A: plain Avro single-object encoding (most common) -----------
+payload_bytes = expr("substring(value, 6, length(value) - 5)")
+
 parsed = (
     raw_stream
         .select(
@@ -339,7 +345,11 @@ parsed = (
             "partition",
             "offset",
             col("timestamp").alias("kafka_ts"),
-            from_avro(value_binary, logistics_avro_schema).alias("payload"),
+            from_avro(
+                payload_bytes,
+                logistics_avro_schema,
+                {"mode": "PERMISSIVE"},
+            ).alias("payload"),
         )
         .select(
             "topic", "partition", "offset", "kafka_ts",
@@ -353,18 +363,17 @@ parsed = (
         )
 )
 
-# --- variant B: Confluent Schema Registry framing (uncomment if needed) ---
-# from pyspark.sql.functions import expr   # add this import if uncommenting
+# --- alternative: plain Avro single-object encoding (no Confluent prefix) ---
+# Use this if your producer does NOT use Schema Registry. Pass the raw
+# `value` column straight to from_avro.
+#
 # parsed = (
 #     raw_stream
 #         .select(
 #             "topic", "partition", "offset",
 #             col("timestamp").alias("kafka_ts"),
-#             from_avro(
-#                 # Skip the 5-byte Confluent prefix (magic byte + schema id)
-#                 expr("substring(value, 6, length(value) - 5)"),
-#                 logistics_avro_schema,
-#             ).alias("payload"),
+#             from_avro(raw_stream["value"], logistics_avro_schema,
+#                       {"mode": "PERMISSIVE"}).alias("payload"),
 #         )
 #         .select(
 #             "topic", "partition", "offset", "kafka_ts",
