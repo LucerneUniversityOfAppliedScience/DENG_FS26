@@ -278,60 +278,71 @@ display(spark.sql("""
 # MAGIC %md
 # MAGIC ## Step 2 — parse the payload (`logistics_data_gen`)
 # MAGIC
-# MAGIC The producer emits records that follow this Avro schema:
+# MAGIC The producer emits **binary Avro** following this schema
+# MAGIC (namespace `data.gen.avro`, record `logistics`):
 # MAGIC
 # MAGIC ```text
-# MAGIC record logistics {
-# MAGIC   long   time_utc           # epoch seconds
-# MAGIC   string tracking_id        # e.g. "track-1974256721"
-# MAGIC   string message            # e.g. "transfer"
-# MAGIC   string carrier            # AN_POST | DHL | USPS | R_MAIL
-# MAGIC   array<string> manifest
-# MAGIC   string next_hop_location  # DUB | LON | BER | NYC | PIT | TOR | MAD
-# MAGIC   string state              # Received | Delivered
-# MAGIC }
+# MAGIC long   time_utc           # epoch seconds
+# MAGIC string tracking_id        # e.g. "track-1974256721"
+# MAGIC string message            # e.g. "transfer"
+# MAGIC string carrier            # AN_POST | DHL | USPS | R_MAIL
+# MAGIC array<string> manifest
+# MAGIC string next_hop_location  # DUB | LON | BER | NYC | PIT | TOR | MAD
+# MAGIC string state              # Received | Delivered
 # MAGIC ```
 # MAGIC
-# MAGIC Aiven's Kafka Data Generator delivers these records as **JSON**
-# MAGIC on the wire (one JSON object per Kafka message), so we parse with
-# MAGIC `from_json`. We also convert `time_utc` (epoch seconds) into a
-# MAGIC proper timestamp.
+# MAGIC Binary Avro can't be parsed with `from_json` (you'd get all nulls —
+# MAGIC the bytes look nothing like text JSON). We use `from_avro` from
+# MAGIC `pyspark.sql.avro.functions` and pass the schema as a JSON string.
 # MAGIC
-# MAGIC > If the `value` column in the live preview above shows binary
-# MAGIC > garbage instead of readable JSON, the topic is encoded with
-# MAGIC > Confluent-style binary Avro — in that case skip `from_json` and
-# MAGIC > use `from_avro` from the `spark-avro` package.
+# MAGIC > If the resulting columns are still null, the producer is using
+# MAGIC > **Confluent Schema Registry framing** — every Kafka message
+# MAGIC > starts with `0x00` + 4-byte schema ID before the Avro payload.
+# MAGIC > Strip those 5 bytes with `expr("substring(value, 6,
+# MAGIC > length(value) - 5)")` before calling `from_avro`. The cell
+# MAGIC > below has the variant ready as a comment.
 
 # COMMAND ----------
 
-# DBTITLE 1,JSON parsing for logistics_data_gen
-from pyspark.sql.functions import from_json, from_unixtime, to_timestamp
-from pyspark.sql.types import (
-    StructType, StructField, StringType, LongType, ArrayType,
-)
+# DBTITLE 1,Avro parsing for logistics_data_gen
+from pyspark.sql.functions import from_unixtime, to_timestamp
+from pyspark.sql.avro.functions import from_avro
 
-logistics_schema = StructType([
-    StructField("time_utc",          LongType()),
-    StructField("tracking_id",       StringType()),
-    StructField("message",           StringType()),
-    StructField("carrier",           StringType()),
-    StructField("manifest",          ArrayType(StringType())),
-    StructField("next_hop_location", StringType()),
-    StructField("state",             StringType()),
-])
+# Avro schema as a JSON string — strip the "examples" metadata that
+# Aiven's generator UI adds (Avro itself doesn't understand it).
+logistics_avro_schema = """
+{
+  "type": "record",
+  "name": "logistics",
+  "namespace": "data.gen.avro",
+  "fields": [
+    {"name": "time_utc",          "type": "long"},
+    {"name": "tracking_id",       "type": "string"},
+    {"name": "message",           "type": "string"},
+    {"name": "carrier",           "type": "string"},
+    {"name": "manifest",          "type": {"type": "array", "items": "string"}},
+    {"name": "next_hop_location", "type": "string"},
+    {"name": "state",             "type": "string"}
+  ]
+}
+"""
 
+# `value` arrives as binary from Kafka — keep it that way for from_avro
+# (do NOT cast to STRING first, that's what `decoded` did for previewing).
+value_binary = raw_stream["value"]
+
+# --- variant A: plain Avro single-object encoding (most common) -----------
 parsed = (
-    decoded
+    raw_stream
         .select(
             "topic",
             "partition",
             "offset",
-            "timestamp",
-            from_json(col("value"), logistics_schema).alias("payload"),
+            col("timestamp").alias("kafka_ts"),
+            from_avro(value_binary, logistics_avro_schema).alias("payload"),
         )
         .select(
-            "topic", "partition", "offset",
-            col("timestamp").alias("kafka_ts"),
+            "topic", "partition", "offset", "kafka_ts",
             to_timestamp(from_unixtime(col("payload.time_utc"))).alias("event_ts"),
             "payload.tracking_id",
             "payload.message",
@@ -341,6 +352,31 @@ parsed = (
             "payload.state",
         )
 )
+
+# --- variant B: Confluent Schema Registry framing (uncomment if needed) ---
+# from pyspark.sql.functions import expr   # add this import if uncommenting
+# parsed = (
+#     raw_stream
+#         .select(
+#             "topic", "partition", "offset",
+#             col("timestamp").alias("kafka_ts"),
+#             from_avro(
+#                 # Skip the 5-byte Confluent prefix (magic byte + schema id)
+#                 expr("substring(value, 6, length(value) - 5)"),
+#                 logistics_avro_schema,
+#             ).alias("payload"),
+#         )
+#         .select(
+#             "topic", "partition", "offset", "kafka_ts",
+#             to_timestamp(from_unixtime(col("payload.time_utc"))).alias("event_ts"),
+#             "payload.tracking_id",
+#             "payload.message",
+#             "payload.carrier",
+#             "payload.manifest",
+#             "payload.next_hop_location",
+#             "payload.state",
+#         )
+# )
 
 # DBTITLE 1,Snapshot via memory sink — parsed view
 query_parsed = (
