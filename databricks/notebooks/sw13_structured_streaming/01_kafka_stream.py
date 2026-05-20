@@ -93,6 +93,36 @@ print(f"✓ CA file found ({os.path.getsize(truststore_path)} bytes)")
 
 # COMMAND ----------
 
+# DBTITLE 1,(Optional) Reset checkpoints for this topic
+# When you change the *shape* of a streaming query (e.g. switched from
+# `display(streaming_df, …)` to a memory sink, or renamed columns)
+# Spark refuses to resume from the existing checkpoint and prints:
+#
+#   This query does not support recovering from checkpoint location.
+#   Delete .../offsets to start over.
+#
+# Flip the widget below to "yes" once to wipe the topic's checkpoint
+# subtree and start fresh, then flip it back to "no" so you don't
+# accidentally lose progress on the next run.
+dbutils.widgets.dropdown("cleanup_checkpoints", "no", ["no", "yes"],
+                         "Wipe checkpoints for this topic?")
+cleanup = dbutils.widgets.get("cleanup_checkpoints")
+
+topic_checkpoints = f"{checkpoint_root}/{topic}"
+
+if cleanup == "yes":
+    try:
+        dbutils.fs.rm(topic_checkpoints, recurse=True)
+        print(f"✓ Deleted {topic_checkpoints}")
+    except Exception as e:
+        # Volume path didn't exist yet — also fine.
+        print(f"(nothing to delete: {e})")
+else:
+    print(f"Checkpoint subtree kept: {topic_checkpoints}")
+    print("Set the 'cleanup_checkpoints' widget to 'yes' if you want to reset.")
+
+# COMMAND ----------
+
 # DBTITLE 1,Load credentials from the secret scope
 SCOPE = "secret_scope"
 
@@ -333,19 +363,41 @@ display(spark.sql("""
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Next step — persist to a Delta table
+# MAGIC ## Next step — persist to Delta (Medallion pattern)
 # MAGIC
-# MAGIC Once you trust the parsing, write the stream into Bronze with a
-# MAGIC checkpoint so the load is resumable:
+# MAGIC | Layer | What we store | DataFrame |
+# MAGIC |---|---|---|
+# MAGIC | **Bronze** | Raw Kafka records, untouched: key, value (as string), topic, partition, offset, kafka timestamp. **No JSON parsing.** Replayable lossless copy of the source. | `decoded` |
+# MAGIC | **Silver** | Parsed and cleaned (`from_json`, type casts, derived columns). Schema you actually want to query. | `parsed` |
+# MAGIC | **Gold** | Aggregations / business metrics (downstream notebooks). | derived |
+# MAGIC
+# MAGIC ### Bronze — write the **raw** stream
 # MAGIC
 # MAGIC ```python
-# MAGIC (parsed.writeStream
+# MAGIC (decoded.writeStream
 # MAGIC     .format("delta")
 # MAGIC     .option("checkpointLocation",
 # MAGIC             f"{checkpoint_root}/{topic}/bronze")
 # MAGIC     .outputMode("append")
 # MAGIC     .trigger(availableNow=True)   # required on Free Edition / serverless
-# MAGIC     .toTable(f"workspace.bronze.{topic.replace('-', '_')}_raw")
+# MAGIC     .toTable(f"workspace.bronze.{topic.replace('-', '_')}")
+# MAGIC )
+# MAGIC ```
+# MAGIC
+# MAGIC ### Silver — parse on top of Bronze
+# MAGIC
+# MAGIC Once Bronze is being filled, the Silver job can either read the
+# MAGIC Bronze table (`spark.readStream.table(...)`) and apply `from_json`,
+# MAGIC or apply the parsing inline like this:
+# MAGIC
+# MAGIC ```python
+# MAGIC (parsed.writeStream
+# MAGIC     .format("delta")
+# MAGIC     .option("checkpointLocation",
+# MAGIC             f"{checkpoint_root}/{topic}/silver")
+# MAGIC     .outputMode("append")
+# MAGIC     .trigger(availableNow=True)
+# MAGIC     .toTable(f"workspace.silver.{topic.replace('-', '_')}")
 # MAGIC )
 # MAGIC ```
 # MAGIC
@@ -353,8 +405,4 @@ display(spark.sql("""
 # MAGIC notebook every few minutes and each run picks up everything that
 # MAGIC arrived since the last checkpoint, then stops. Same checkpoint
 # MAGIC across runs means no duplicates.
-# MAGIC
-# MAGIC That's the canonical Kafka → Bronze pattern. From there continue
-# MAGIC with Silver (cleaned) and Gold (aggregated) as in the previous
-# MAGIC weeks.
 
