@@ -23,6 +23,26 @@
 # MAGIC    - Adjust the `truststore_path` widget below if you put it
 # MAGIC      somewhere else.
 # MAGIC
+# MAGIC ### ⚠️ Security note — cert and key handling
+# MAGIC
+# MAGIC | Artefact | Sensitivity | Where it belongs |
+# MAGIC |---|---|---|
+# MAGIC | `ca.pem` (the Aiven CA cert) | Public — anyone could fetch it. **But** it pins your client to *this* Aiven project, so still treat it as semi-internal. | UC Volume with a Unity Catalog grant limiting it to your workspace / class group. |
+# MAGIC | `service.cert` + `service.key` (client mTLS, if you switch from SASL) | **Private key — full impersonation** of your service if leaked. | Databricks **Secret Scope** (one secret per file content), *not* a Volume. |
+# MAGIC | SASL password (`AVNS_…`) | **Sensitive** — full broker access. | Already in `secret_scope` via `00_setup`. Never paste it into a notebook cell. |
+# MAGIC
+# MAGIC **Things to avoid:**
+# MAGIC
+# MAGIC - ❌ Don't commit `ca.pem`, `service.cert` or `service.key` to Git —
+# MAGIC   if your `databricks/` folder is synced to a repo, add the cert
+# MAGIC   path to `.gitignore` or keep the cert only in Volumes / Secrets.
+# MAGIC - ❌ Don't drop the cert into a public Volume (`/Volumes/<catalog>/<schema>/<volume>`
+# MAGIC   with broad `READ VOLUME` grants). Restrict the volume's grants to
+# MAGIC   the user/group that actually needs it
+# MAGIC   (`GRANT READ VOLUME ON VOLUME workspace.landing.files TO <group>`).
+# MAGIC - ❌ Don't `print(open(ca_pem).read())` in a notebook that is shared
+# MAGIC   or scheduled — the cert content ends up in the run history.
+# MAGIC
 # MAGIC ## What this notebook does
 # MAGIC
 # MAGIC 1. Read the Kafka credentials from the secret scope.
