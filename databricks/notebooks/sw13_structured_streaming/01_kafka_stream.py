@@ -113,12 +113,21 @@ print(f"Password          : (redacted, length={len(password)})")
 # DBTITLE 1,Build the SASL JAAS config
 # Spark's Kafka client expects the JAAS config as a single string. Which
 # login module to use depends on the SASL mechanism:
-#   SCRAM-* -> org.apache.kafka.common.security.scram.ScramLoginModule
-#   PLAIN   -> org.apache.kafka.common.security.plain.PlainLoginModule
+#   SCRAM-* -> ...security.scram.ScramLoginModule
+#   PLAIN   -> ...security.plain.PlainLoginModule
+#
+# IMPORTANT: Databricks ships a *shaded* Kafka client to avoid version
+# conflicts with user libraries — the classes live under the
+# `kafkashaded.org.apache.kafka` prefix. Using the plain
+# `org.apache.kafka` prefix throws
+#   "No LoginModule found for org.apache.kafka.common.security.scram.ScramLoginModule".
+# On non-Databricks Spark you'd drop the `kafkashaded.` prefix.
+LOGIN_MODULE_PREFIX = "kafkashaded.org.apache.kafka"
+
 if sasl_mechanism.startswith("SCRAM"):
-    login_module = "org.apache.kafka.common.security.scram.ScramLoginModule"
+    login_module = f"{LOGIN_MODULE_PREFIX}.common.security.scram.ScramLoginModule"
 else:
-    login_module = "org.apache.kafka.common.security.plain.PlainLoginModule"
+    login_module = f"{LOGIN_MODULE_PREFIX}.common.security.plain.PlainLoginModule"
 
 jaas_config = (
     f'{login_module} required '
