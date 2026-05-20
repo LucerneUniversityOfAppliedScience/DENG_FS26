@@ -132,9 +132,16 @@ print(f"Kafka options ready. JAAS module: {login_module}")
 # COMMAND ----------
 
 # DBTITLE 1,Define the Bronze projection
-# Bronze rule: keep the *whole* Kafka record. Cast the binary value to
-# STRING so the column is readable in queries (the original bytes are
-# recoverable from the offset — Kafka still has them).
+# Bronze rule: keep the *whole* Kafka record, byte-faithful.
+#
+# - `key` is conventionally a short identifier → cast to STRING for
+#   readability.
+# - `value` stays BINARY. Casting binary Avro to STRING via UTF-8
+#   decoding mangles the bytes; the Silver layer needs the original
+#   bytes to call from_avro on them. For JSON producers, BINARY is
+#   still fine — Silver casts to STRING right before from_json.
+# - To preview the value in a SELECT, cast it then:
+#     SELECT CAST(value AS STRING) FROM workspace.bronze.<t>
 from pyspark.sql.functions import col
 
 raw_stream = (
@@ -148,8 +155,8 @@ raw_stream = (
 
 bronze = (
     raw_stream.selectExpr(
-        "CAST(key   AS STRING) AS key",
-        "CAST(value AS STRING) AS value",
+        "CAST(key AS STRING) AS key",
+        "value",                              # keep BINARY — lossless
         "topic",
         "partition",
         "offset",
@@ -193,7 +200,11 @@ display(spark.sql(f"""
 """))
 
 display(spark.sql(f"""
-    SELECT *
+    SELECT
+        key,
+        CAST(value AS STRING) AS value_preview,     -- value is BINARY, cast for the eye
+        topic, partition, offset,
+        kafka_ts, ingest_ts
     FROM {bronze_table}
     ORDER BY kafka_ts DESC
     LIMIT 50
@@ -204,16 +215,11 @@ display(spark.sql(f"""
 # MAGIC %md
 # MAGIC ## What's next — Silver
 # MAGIC
-# MAGIC Bronze stays untouched and replayable. The Silver layer is where
-# MAGIC parsing happens. A Silver notebook would:
-# MAGIC
-# MAGIC 1. `spark.readStream.table("workspace.bronze.<table>")` — Delta
-# MAGIC    tables are also valid streaming sources, so Silver is *another*
-# MAGIC    micro-batch job downstream of Bronze.
-# MAGIC 2. Apply `from_avro` (for `logistics_data_gen`) or `from_json`
-# MAGIC    (for `sensor_readings`) to the `value` column.
-# MAGIC 3. Write to `workspace.silver.<table>` with its own checkpoint.
-# MAGIC
-# MAGIC Same `availableNow` pattern, separate checkpoint, no surprises.
+# MAGIC Bronze stays untouched and replayable. The Silver layer parses the
+# MAGIC `value` bytes into proper columns. Continue with
+# MAGIC [`04_bronze_to_silver`](./04_bronze_to_silver): it reads
+# MAGIC `workspace.bronze.<table>` as a streaming source, applies
+# MAGIC `from_avro` (for `logistics_data_gen`) or `from_json` (for
+# MAGIC `sensor_readings`), and writes to `workspace.silver.<table>`.
 
 # COMMAND ----------
