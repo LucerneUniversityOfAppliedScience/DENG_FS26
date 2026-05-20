@@ -199,12 +199,18 @@ decoded.printSchema()
 # `display()` renders a streaming DataFrame as a live-updating table.
 # Click the ■ button above the table to stop the query.
 #
-# Databricks Free Edition disables implicit temp checkpoints, so we
-# pass an explicit `checkpointLocation`. Each display() needs its own
-# subdirectory — otherwise two queries fight over the same state.
+# Two Databricks-Free-Edition gotchas baked in:
+#  1. `checkpointLocation` — implicit temp checkpoints are disabled.
+#  2. `outputMode="append"` — non-aggregated streams only support
+#     "append". Without setting it explicitly Databricks may default
+#     to "complete", which raises STREAMING_OUTPUT_MODE.UNSUPPORTED_OPERATION.
+#
+# If `display()` still misbehaves on your workspace, fall back to the
+# memory-sink workaround at the bottom of this notebook.
 display(
     decoded,
     checkpointLocation=f"{checkpoint_root}/{topic}/_preview_raw",
+    outputMode="append",
 )
 
 # COMMAND ----------
@@ -279,6 +285,7 @@ parsed = (
 display(
     parsed,
     checkpointLocation=f"{checkpoint_root}/{topic}/_preview_parsed",
+    outputMode="append",
 )
 
 # COMMAND ----------
@@ -304,3 +311,43 @@ display(
 # MAGIC weeks.
 
 # COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Fallback — preview via the memory sink
+# MAGIC
+# MAGIC If `display(streaming_df, …)` still misbehaves on your workspace
+# MAGIC (e.g. weird output-mode errors after a previous run), write the
+# MAGIC stream into an **in-memory table** and query that table like any
+# MAGIC normal DataFrame:
+# MAGIC
+# MAGIC 1. Run the cell below — it starts a streaming query writing into
+# MAGIC    a memory-backed table called `kafka_raw_preview`.
+# MAGIC 2. Run the `display(spark.table(...))` cell to take a snapshot.
+# MAGIC    Re-run it whenever you want a fresh look.
+# MAGIC 3. When you're done, stop the query with `query.stop()` so the
+# MAGIC    memory table stops growing.
+
+# COMMAND ----------
+
+# DBTITLE 1,Start the memory-sink query (optional fallback)
+query = (
+    parsed.writeStream
+        .format("memory")
+        .queryName("kafka_raw_preview")
+        .outputMode("append")
+        .option("checkpointLocation",
+                f"{checkpoint_root}/{topic}/_memory_preview")
+        .start()
+)
+print(f"Streaming into memory table 'kafka_raw_preview' — query id {query.id}")
+
+# COMMAND ----------
+
+# DBTITLE 1,Snapshot of the memory table
+display(spark.sql("SELECT * FROM kafka_raw_preview ORDER BY kafka_ts DESC LIMIT 200"))
+
+# COMMAND ----------
+
+# DBTITLE 1,Stop the memory-sink query
+# Run this when you're done previewing.
+# query.stop()
