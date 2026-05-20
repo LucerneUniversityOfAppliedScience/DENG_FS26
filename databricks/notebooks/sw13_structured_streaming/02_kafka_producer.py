@@ -2,10 +2,11 @@
 # MAGIC %md
 # MAGIC # Produce Events to Aiven Kafka
 # MAGIC
-# MAGIC The mirror image of [`01_kafka_stream`](./01_kafka_stream): instead of
-# MAGIC reading the Aiven-hosted `logistics_data_gen` topic, we **create our
-# MAGIC own topic** and write events into it. A second notebook (or a re-run
-# MAGIC of `01_kafka_stream` pointed at this topic) can then consume them.
+# MAGIC The mirror image of [`01_kafka_consumer`](./01_kafka_consumer):
+# MAGIC instead of *reading* the Aiven-hosted `logistics_data_gen` topic,
+# MAGIC we **create our own topic** and write events into it.
+# MAGIC [`03_kafka_to_bronze`](./03_kafka_to_bronze) can then ingest those
+# MAGIC events into a Delta table.
 # MAGIC
 # MAGIC ## Prerequisites
 # MAGIC
@@ -244,37 +245,13 @@ print(f"✓ Sent {records.count()} events to topic {topic!r}.")
 # MAGIC Open the Aiven console → *Topics* → click your topic → *Messages*
 # MAGIC tab. You should see the JSON payloads arriving.
 # MAGIC
-# MAGIC ## Read them back in `01_kafka_stream`
+# MAGIC ## Next step — ingest into Bronze
 # MAGIC
-# MAGIC In [`01_kafka_stream`](./01_kafka_stream):
-# MAGIC
-# MAGIC 1. Set the `topic` widget to the same name you used here.
-# MAGIC 2. Set `cleanup_checkpoints` to `yes` once, then back to `no`
-# MAGIC    (you've changed which topic the checkpoint tracks).
-# MAGIC 3. Set `starting_offsets` to `earliest`.
-# MAGIC 4. Replace the Avro-parsing step with JSON parsing — this
-# MAGIC    notebook writes plain JSON, no Confluent prefix, no Avro
-# MAGIC    binary:
-# MAGIC
-# MAGIC    ```python
-# MAGIC    from pyspark.sql.functions import from_json, col
-# MAGIC    from pyspark.sql.types import (
-# MAGIC        StructType, StructField, StringType, DoubleType, TimestampType,
-# MAGIC    )
-# MAGIC
-# MAGIC    sensor_schema = StructType([
-# MAGIC        StructField("event_id",      StringType()),
-# MAGIC        StructField("room_id",       StringType()),
-# MAGIC        StructField("temperature_c", DoubleType()),
-# MAGIC        StructField("humidity_pct",  DoubleType()),
-# MAGIC        StructField("event_ts",      TimestampType()),
-# MAGIC    ])
-# MAGIC
-# MAGIC    parsed = raw_stream.select(
-# MAGIC        from_json(col("value").cast("string"), sensor_schema).alias("payload")
-# MAGIC    ).select("payload.*")
-# MAGIC    ```
-# MAGIC
-# MAGIC Then run the rest of `01_kafka_stream` as before.
+# MAGIC Continue with [`03_kafka_to_bronze`](./03_kafka_to_bronze): point
+# MAGIC its `topic` widget at the topic you just produced into (e.g.
+# MAGIC `sensor_readings`) and pick a Bronze table name. That notebook
+# MAGIC reads the topic and persists the raw records to a Delta table at
+# MAGIC `workspace.bronze.<table_name>` — ready for Silver-layer parsing
+# MAGIC in downstream notebooks.
 
 # COMMAND ----------
