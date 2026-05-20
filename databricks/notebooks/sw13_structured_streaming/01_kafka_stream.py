@@ -195,22 +195,22 @@ decoded.printSchema()
 
 # COMMAND ----------
 
-# DBTITLE 1,Live preview
-# `display()` renders a streaming DataFrame as a live-updating table.
-# Click the ■ button above the table to stop the query.
-#
-# Two Databricks-Free-Edition gotchas baked in:
+# DBTITLE 1,Snapshot preview
+# Free Edition / serverless gotchas baked in:
 #  1. `checkpointLocation` — implicit temp checkpoints are disabled.
 #  2. `outputMode="append"` — non-aggregated streams only support
-#     "append". Without setting it explicitly Databricks may default
-#     to "complete", which raises STREAMING_OUTPUT_MODE.UNSUPPORTED_OPERATION.
-#
-# If `display()` still misbehaves on your workspace, fall back to the
-# memory-sink workaround at the bottom of this notebook.
+#     "append". Without it Databricks may pick "complete" and fail
+#     with STREAMING_OUTPUT_MODE.UNSUPPORTED_OPERATION.
+#  3. `trigger={"availableNow": True}` — continuous triggers (default
+#     ProcessingTime) are blocked on this cluster type with
+#     INFINITE_STREAMING_TRIGGER_NOT_SUPPORTED. AvailableNow processes
+#     whatever is in Kafka right now, then stops. To see fresh data,
+#     re-run the cell.
 display(
     decoded,
     checkpointLocation=f"{checkpoint_root}/{topic}/_preview_raw",
     outputMode="append",
+    trigger={"availableNow": True},
 )
 
 # COMMAND ----------
@@ -286,6 +286,7 @@ display(
     parsed,
     checkpointLocation=f"{checkpoint_root}/{topic}/_preview_parsed",
     outputMode="append",
+    trigger={"availableNow": True},
 )
 
 # COMMAND ----------
@@ -302,9 +303,15 @@ display(
 # MAGIC     .option("checkpointLocation",
 # MAGIC             f"{checkpoint_root}/{topic}/bronze")
 # MAGIC     .outputMode("append")
+# MAGIC     .trigger(availableNow=True)   # required on Free Edition / serverless
 # MAGIC     .toTable(f"workspace.bronze.{topic.replace('-', '_')}_raw")
 # MAGIC )
 # MAGIC ```
+# MAGIC
+# MAGIC On Free Edition this is a *micro-batch ETL pattern*: schedule the
+# MAGIC notebook every few minutes and each run picks up everything that
+# MAGIC arrived since the last checkpoint, then stops. Same checkpoint
+# MAGIC across runs means no duplicates.
 # MAGIC
 # MAGIC That's the canonical Kafka → Bronze pattern. From there continue
 # MAGIC with Silver (cleaned) and Gold (aggregated) as in the previous
@@ -316,30 +323,38 @@ display(
 # MAGIC ## Fallback — preview via the memory sink
 # MAGIC
 # MAGIC If `display(streaming_df, …)` still misbehaves on your workspace
-# MAGIC (e.g. weird output-mode errors after a previous run), write the
-# MAGIC stream into an **in-memory table** and query that table like any
-# MAGIC normal DataFrame:
+# MAGIC (e.g. checkpoint-related errors after a previous run), write
+# MAGIC the stream into an **in-memory table** and query that table like
+# MAGIC any normal DataFrame:
 # MAGIC
-# MAGIC 1. Run the cell below — it starts a streaming query writing into
-# MAGIC    a memory-backed table called `kafka_raw_preview`.
-# MAGIC 2. Run the `display(spark.table(...))` cell to take a snapshot.
-# MAGIC    Re-run it whenever you want a fresh look.
-# MAGIC 3. When you're done, stop the query with `query.stop()` so the
-# MAGIC    memory table stops growing.
+# MAGIC 1. Run the next cell — it starts a streaming query with the
+# MAGIC    `availableNow` trigger. It processes everything currently in
+# MAGIC    Kafka, writes it into `kafka_raw_preview`, then stops on its
+# MAGIC    own.
+# MAGIC 2. Run the `display(spark.sql(...))` cell to look at the
+# MAGIC    snapshot. Re-run the previous cell to refresh.
+# MAGIC 3. There is no continuous query to clean up — Free Edition
+# MAGIC    doesn't support `ProcessingTime` triggers anyway.
 
 # COMMAND ----------
 
 # DBTITLE 1,Start the memory-sink query (optional fallback)
+# `availableNow=True` is required on Free Edition / serverless. The
+# query processes everything currently in Kafka and stops on its own —
+# no need to call `query.stop()` manually. Re-run the cell to pick up
+# new messages.
 query = (
     parsed.writeStream
         .format("memory")
         .queryName("kafka_raw_preview")
         .outputMode("append")
+        .trigger(availableNow=True)
         .option("checkpointLocation",
                 f"{checkpoint_root}/{topic}/_memory_preview")
         .start()
 )
-print(f"Streaming into memory table 'kafka_raw_preview' — query id {query.id}")
+query.awaitTermination()    # wait until the batch finished writing
+print(f"Done. Memory table 'kafka_raw_preview' now has the latest snapshot.")
 
 # COMMAND ----------
 
@@ -348,6 +363,8 @@ display(spark.sql("SELECT * FROM kafka_raw_preview ORDER BY kafka_ts DESC LIMIT 
 
 # COMMAND ----------
 
-# DBTITLE 1,Stop the memory-sink query
-# Run this when you're done previewing.
+# DBTITLE 1,(Optional) Stop the memory-sink query
+# With `availableNow=True` the query already stopped itself — this is
+# only here for completeness if you switch to a continuous trigger on
+# a non-Free cluster.
 # query.stop()
