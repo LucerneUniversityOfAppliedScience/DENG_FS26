@@ -56,7 +56,7 @@
 # DBTITLE 1,Widgets
 # Topic, starting offset, SASL mechanism and the path to the Aiven CA.
 dbutils.widgets.text("topic",            "logistics_data_gen", "Kafka topic")
-dbutils.widgets.dropdown("starting_offsets", "latest", ["latest", "earliest"], "Starting offsets")
+dbutils.widgets.dropdown("starting_offsets", "earliest", ["earliest", "latest"], "Starting offsets")
 dbutils.widgets.dropdown("sasl_mechanism",   "SCRAM-SHA-256",
                          ["SCRAM-SHA-256", "SCRAM-SHA-512", "PLAIN"], "SASL mechanism")
 dbutils.widgets.text("truststore_path",
@@ -244,6 +244,12 @@ decoded.printSchema()
 #
 # Each call processes whatever is in Kafka right now and stops. Re-run
 # the cell to refresh.
+#
+# Empty result? Two likely reasons:
+#  1. `starting_offsets="latest"` plus `availableNow` = "from now on,
+#     until now" → 0 rows. Switch the widget to `earliest`.
+#  2. The checkpoint already consumed all messages on a previous run.
+#     Set `cleanup_checkpoints` to `yes` once and re-run.
 query_raw = (
     decoded.writeStream
         .format("memory")
