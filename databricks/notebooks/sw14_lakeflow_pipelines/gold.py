@@ -8,10 +8,10 @@
 # MAGIC
 # MAGIC - `gold_carrier_kpi_per_min` — tumbling window aggregation
 # MAGIC   (events per carrier per state per minute). Same idea as
-# MAGIC   sw13's `07_silver_to_gold_tumbling.py`.
+# MAGIC   sw13's `05_silver_to_gold_tumbling.py`.
 # MAGIC - `gold_shipment_journey` — session window per `tracking_id`
 # MAGIC   with a 30-minute gap. Same idea as sw13's
-# MAGIC   `08_silver_to_gold_sessions.py`.
+# MAGIC   `06_silver_to_gold_sessions.py`.
 
 # COMMAND ----------
 

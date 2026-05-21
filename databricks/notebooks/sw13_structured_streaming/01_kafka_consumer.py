@@ -345,11 +345,13 @@ parsed = (
             "partition",
             "offset",
             col("timestamp").alias("kafka_ts"),
-            from_avro(
-                payload_bytes,
-                logistics_avro_schema,
-                {"mode": "PERMISSIVE"},
-            ).alias("payload"),
+            # NOTE: the options-dict variant of `from_avro` (e.g.
+            # `{"mode": "PERMISSIVE"}`) currently raises INTERNAL_ERROR
+            # on Databricks Serverless / Spark Connect. Default mode is
+            # FAILFAST and is fine for valid Avro from Aiven's data
+            # generator. For error-tolerant parsing patterns, see
+            # `09_foreach_batch_dlq.py`.
+            from_avro(payload_bytes, logistics_avro_schema).alias("payload"),
         )
         .select(
             "topic", "partition", "offset", "kafka_ts",
@@ -372,8 +374,7 @@ parsed = (
 #         .select(
 #             "topic", "partition", "offset",
 #             col("timestamp").alias("kafka_ts"),
-#             from_avro(raw_stream["value"], logistics_avro_schema,
-#                       {"mode": "PERMISSIVE"}).alias("payload"),
+#             from_avro(raw_stream["value"], logistics_avro_schema).alias("payload"),
 #         )
 #         .select(
 #             "topic", "partition", "offset", "kafka_ts",

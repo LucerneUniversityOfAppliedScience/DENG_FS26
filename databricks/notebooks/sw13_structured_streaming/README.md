@@ -18,16 +18,14 @@ with sw13 first.
 | 02 | [`02_kafka_producer.py`](./02_kafka_producer.py) | Create a topic via the Kafka AdminClient, generate IoT sensor events, batch-write to Kafka |
 | 03 | [`03_kafka_to_bronze.py`](./03_kafka_to_bronze.py) | Stream Kafka → `workspace.bronze.<table>` (raw key + binary value) |
 | 04 | [`04_bronze_to_silver.py`](./04_bronze_to_silver.py) | Parse Bronze → `workspace.silver.<table>` (Avro / JSON), three formats supported via widget |
-| 05 | [`05_kafka_to_avro_files.py`](./05_kafka_to_avro_files.py) | Stream Kafka → partitioned Avro archive on a UC Volume |
-| 06 | [`06_avro_to_bronze.py`](./06_avro_to_bronze.py) | Replay the Avro archive into Bronze with **Auto Loader** |
-| 07 | [`07_silver_to_gold_tumbling.py`](./07_silver_to_gold_tumbling.py) | Event-time **tumbling window** aggregation per carrier per state |
-| 08 | [`08_silver_to_gold_sessions.py`](./08_silver_to_gold_sessions.py) | **Session windows** per `tracking_id` — the lifecycle of each shipment |
-| 09 | [`09_silver_to_gold_sliding.py`](./09_silver_to_gold_sliding.py) | **Sliding (hopping)** windows — same KPI, smoother curve |
-| 10 | [`10_stateful_stuck_alerts.py`](./10_stateful_stuck_alerts.py) | Custom stateful streaming with `applyInPandasWithState` — alert on stuck shipments |
-| 11 | [`11_foreach_batch_dlq.py`](./11_foreach_batch_dlq.py) | `foreachBatch` + **Dead-Letter-Queue** pattern for parse failures |
+| 05 | [`05_silver_to_gold_tumbling.py`](./05_silver_to_gold_tumbling.py) | Event-time **tumbling window** aggregation per carrier per state |
+| 06 | [`06_silver_to_gold_sessions.py`](./06_silver_to_gold_sessions.py) | **Session windows** per `tracking_id` — the lifecycle of each shipment |
+| 07 | [`07_silver_to_gold_sliding.py`](./07_silver_to_gold_sliding.py) | **Sliding (hopping)** windows — same KPI, smoother curve |
+| 08 | [`08_stateful_stuck_alerts.py`](./08_stateful_stuck_alerts.py) | Custom stateful streaming with `applyInPandasWithState` — alert on stuck shipments (needs non-shared cluster) |
+| 09 | [`09_foreach_batch_dlq.py`](./09_foreach_batch_dlq.py) | `foreachBatch` + **Dead-Letter-Queue** pattern for parse failures |
 
-Suggested reading order: 00 → 01 → 03 → 04 → 07 → 08, then branch out
-to 02/05/06 (alternative ingestion paths) and 09/10/11 (advanced).
+Suggested reading order: 00 → 01 → 03 → 04 → 05 → 06, then branch out
+to 02 (alternative producer) and 07/08/09 (advanced).
 
 ## Prerequisites
 
@@ -143,10 +141,10 @@ state             Received
    `workspace.bronze.logistics_data_gen`.
 4. **Run `04_bronze_to_silver.py`** with `payload_format=avro_confluent`
    — produces `workspace.silver.logistics_data_gen`.
-5. **Run `07_silver_to_gold_tumbling.py`** and
-   **`08_silver_to_gold_sessions.py`** — the Gold KPIs.
+5. **Run `05_silver_to_gold_tumbling.py`** and
+   **`06_silver_to_gold_sessions.py`** — the Gold KPIs.
 
-The advanced notebooks (09 / 10 / 11) can be done in any order on top
+The advanced notebooks (07 / 08 / 09) can be done in any order on top
 of an already-populated Silver layer.
 
 ## Security note

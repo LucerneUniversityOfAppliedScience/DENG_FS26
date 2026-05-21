@@ -72,11 +72,13 @@ def silver_logistics():
         bronze
             .select(
                 "topic", "partition", "offset", "kafka_ts", "ingest_ts",
-                from_avro(
-                    payload_bytes,
-                    LOGISTICS_AVRO_SCHEMA,
-                    {"mode": "PERMISSIVE"},
-                ).alias("payload"),
+                # The options-dict variant of `from_avro` currently
+                # throws INTERNAL_ERROR on serverless DLT compute. Default
+                # mode is FAILFAST — the Aiven generator only emits valid
+                # Avro so the happy path works. Real DLQ for Avro on
+                # serverless needs a Python UDF wrapping fastavro in
+                # try/except; outside the scope of this teaching pipeline.
+                from_avro(payload_bytes, LOGISTICS_AVRO_SCHEMA).alias("payload"),
             )
             .select(
                 "topic", "partition", "offset", "kafka_ts", "ingest_ts",

@@ -221,7 +221,7 @@ display(spark.sql(f"""
 # MAGIC
 # MAGIC ## What's next — session windows
 # MAGIC
-# MAGIC Continue with [`08_silver_to_gold_sessions`](./08_silver_to_gold_sessions):
+# MAGIC Continue with [`06_silver_to_gold_sessions`](./06_silver_to_gold_sessions):
 # MAGIC instead of fixed-size buckets, group events by inactivity gaps
 # MAGIC per `tracking_id` — the **lifecycle of each shipment**.
 

@@ -143,7 +143,7 @@ After a successful run:
   `dlt.create_streaming_table` + an `@dlt.append_flow`, but it's less
   ergonomic than the imperative version).
 - Custom stateful APIs (`applyInPandasWithState`) aren't a first-class
-  citizen — see `10_stateful_stuck_alerts.py` in sw13 for the
+  citizen — see `08_stateful_stuck_alerts.py` in sw13 for the
   imperative equivalent.
 - Iteration is slower: you can't run "just this one cell". Every
   change requires a pipeline trigger.

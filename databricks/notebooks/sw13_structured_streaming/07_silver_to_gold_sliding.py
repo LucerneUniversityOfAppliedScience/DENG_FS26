@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # Silver → Gold: sliding-window carrier KPIs
 # MAGIC
-# MAGIC The sibling of [`07_silver_to_gold_tumbling`](./07_silver_to_gold_tumbling).
+# MAGIC The sibling of [`05_silver_to_gold_tumbling`](./05_silver_to_gold_tumbling).
 # MAGIC Same source, same aggregation idea (events per carrier per state per
 # MAGIC window) — but the window **slides**: every 2 minutes a new
 # MAGIC 10-minute window starts, and the new window overlaps with the

@@ -146,15 +146,18 @@ if payload_format in ("avro_confluent", "avro_plain"):
     else:
         payload_bytes = col("value")
 
+    # NOTE: we used to pass `{"mode": "PERMISSIVE"}` here. On Databricks
+    # Serverless / Spark Connect the options-dict variant of `from_avro`
+    # currently throws an INTERNAL_ERROR ("Cannot resolve the runtime
+    # replaceable expression"). Default mode is FAILFAST — which is
+    # fine for the Aiven data generator since it only emits valid
+    # Avro. If you need to tolerate corrupt records, see notebook 09
+    # (foreachBatch + DLQ).
     parsed = (
         bronze_stream
             .select(
                 "topic", "partition", "offset", "kafka_ts", "ingest_ts",
-                from_avro(
-                    payload_bytes,
-                    logistics_avro_schema,
-                    {"mode": "PERMISSIVE"},
-                ).alias("payload"),
+                from_avro(payload_bytes, logistics_avro_schema).alias("payload"),
             )
             .select(
                 "topic", "partition", "offset", "kafka_ts", "ingest_ts",

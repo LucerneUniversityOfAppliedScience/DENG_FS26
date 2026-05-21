@@ -28,6 +28,14 @@
 # MAGIC One checkpoint, one micro-batch step — Spark guarantees that
 # MAGIC either both writes happen or neither does (per-batch atomicity).
 # MAGIC
+# MAGIC > **Heads-up on Free Edition / serverless.** The DLQ split below
+# MAGIC > relies on `from_avro(..., {"mode": "PERMISSIVE"})` /
+# MAGIC > `from_json(..., mode="PERMISSIVE")`. The Avro options-dict
+# MAGIC > variant currently raises `INTERNAL_ERROR` on Spark Connect
+# MAGIC > (serverless compute), so the Avro path is best run against a
+# MAGIC > *non-shared* interactive cluster. The JSON path works
+# MAGIC > everywhere.
+# MAGIC
 # MAGIC ## Prerequisites
 # MAGIC
 # MAGIC `workspace.bronze.logistics_data_gen` (from `03_kafka_to_bronze`,

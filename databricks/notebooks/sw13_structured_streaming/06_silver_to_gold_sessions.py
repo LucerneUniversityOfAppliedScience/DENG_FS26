@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # Silver → Gold: shipment journey via session windows
 # MAGIC
-# MAGIC While [`07`](./07_silver_to_gold_tumbling) buckets the stream into
+# MAGIC While [`05`](./05_silver_to_gold_tumbling) buckets the stream into
 # MAGIC fixed-size windows, **session windows** are *dynamic*: they grow
 # MAGIC for as long as events keep arriving for the same key, and close
 # MAGIC after a configurable **inactivity gap**.
