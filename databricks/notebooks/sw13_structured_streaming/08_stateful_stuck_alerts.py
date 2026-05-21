@@ -97,7 +97,7 @@ print(f"✓ {source_table}: {n_silver:,} rows available.")
 from pyspark.sql.functions import col
 from pyspark.sql.streaming.state import GroupStateTimeout
 from pyspark.sql.types import (
-    StructType, StructField, StringType, TimestampType, LongType, BooleanType,
+    StructType, StructField, StringType, LongType, BooleanType,
 )
 import pandas as pd
 
@@ -110,24 +110,36 @@ silver_stream = (
 # COMMAND ----------
 
 # DBTITLE 1,Define the output and the state schemas
+# Note on timestamp handling
+# ─────────────────────────
+# Photon + Arrow + Pandas don't agree on timestamp precision in
+# `applyInPandasWithState`. Returning a TimestampType column from the
+# UDF triggers
+#   ArrowInvalid: Casting from timestamp[us] to timestamp[ns] would
+#   result in out of bounds timestamp
+# (pandas stores ns, Arrow labels us, the writer re-casts ns→us and
+# overflows). To stay portable, we use LongType (epoch milliseconds)
+# for every timestamp inside the UDF and cast back to TimestampType
+# *outside* the function, with a regular Spark `cast`.
+
 # Output schema — one row per fired alert.
 output_schema = StructType([
-    StructField("tracking_id",     StringType(),    nullable=False),
-    StructField("carrier",         StringType()),
-    StructField("last_state",      StringType()),
-    StructField("stuck_since_ts",  TimestampType()),
-    StructField("last_known_hop",  StringType()),
-    StructField("alert_ts",        TimestampType()),
+    StructField("tracking_id",          StringType(), nullable=False),
+    StructField("carrier",              StringType()),
+    StructField("last_state",           StringType()),
+    StructField("stuck_since_epoch_ms", LongType()),
+    StructField("last_known_hop",       StringType()),
+    StructField("alert_epoch_ms",       LongType()),
 ])
 
-# State schema — the per-tracking_id memory.
+# State schema — the per-tracking_id memory (all timestamps as long ms).
 state_schema = StructType([
-    StructField("first_ts",     TimestampType()),
-    StructField("last_ts",      TimestampType()),
-    StructField("last_state",   StringType()),
-    StructField("last_carrier", StringType()),
-    StructField("last_hop",     StringType()),
-    StructField("alerted",      BooleanType()),
+    StructField("first_epoch_ms", LongType()),
+    StructField("last_epoch_ms",  LongType()),
+    StructField("last_state",     StringType()),
+    StructField("last_carrier",   StringType()),
+    StructField("last_hop",       StringType()),
+    StructField("alerted",        BooleanType()),
 ])
 
 # Stuck threshold expressed in milliseconds (timer needs ms).
@@ -148,30 +160,40 @@ print(f"Stuck threshold in ms: {STUCK_MS:,}")
 #   key:    a tuple — here just (tracking_id,)
 #   pdfs:   iterator of pandas DataFrames with the new events for that key
 #   state:  a GroupState object — read/update/remove the persisted state
+#
+# Everything inside the function is plain ints (epoch ms). We convert
+# the incoming pandas Timestamps once on entry and never touch
+# Timestamp/Arrow types again.
+import time
+
+def _ts_to_ms(ts) -> int:
+    """pd.Timestamp or numpy datetime64 → int epoch ms."""
+    return int(pd.Timestamp(ts).value // 1_000_000)
+
 def detect_stuck(key, pdfs, state):
     tracking_id = key[0]
 
     # --- 1) Timer-only invocation (no new events, just timeout fired) ---
     if state.hasTimedOut:
-        s = state.get  # tuple in state_schema order
-        first_ts, last_ts, last_state, carrier, last_hop, alerted = s
+        first_ms, last_ms, last_state, carrier, last_hop, alerted = state.get
 
         # Emit an alert exactly once when the timer expires while the
         # shipment is still in "Received".
         if last_state == "Received" and not alerted:
+            now_ms = int(time.time() * 1000)
             yield pd.DataFrame([{
-                "tracking_id":     tracking_id,
-                "carrier":         carrier,
-                "last_state":      last_state,
-                "stuck_since_ts":  last_ts,
-                "last_known_hop":  last_hop,
-                "alert_ts":        pd.Timestamp.utcnow().tz_localize(None),
+                "tracking_id":          tracking_id,
+                "carrier":              carrier,
+                "last_state":           last_state,
+                "stuck_since_epoch_ms": last_ms,
+                "last_known_hop":       last_hop,
+                "alert_epoch_ms":       now_ms,
             }])
             # Mark as alerted and re-arm: if the shipment is *still*
             # stuck N more minutes later, we won't re-fire (we keep
             # the alerted flag). State stays alive until Delivered or
             # the watermark sweeps it away.
-            state.update((first_ts, last_ts, last_state, carrier, last_hop, True))
+            state.update((first_ms, last_ms, last_state, carrier, last_hop, True))
             state.setTimeoutTimestamp(state.getCurrentWatermarkMs() + STUCK_MS)
         else:
             # Either delivered already or alerted — drop the state.
@@ -179,17 +201,16 @@ def detect_stuck(key, pdfs, state):
         return
 
     # --- 2) New events arrived for this tracking_id ---
-    # Merge them into the state (pandas handles the batching).
     new_rows = pd.concat(list(pdfs), ignore_index=True)
     new_rows = new_rows.sort_values("event_ts")
 
     if state.exists:
-        first_ts, last_ts, _, _, _, alerted = state.get
+        first_ms, last_ms, _, _, _, alerted = state.get
     else:
-        first_ts = new_rows["event_ts"].iloc[0]
+        first_ms = _ts_to_ms(new_rows["event_ts"].iloc[0])
         alerted  = False
 
-    last_ts      = new_rows["event_ts"].iloc[-1]
+    last_ms      = _ts_to_ms(new_rows["event_ts"].iloc[-1])
     last_state   = new_rows["state"].iloc[-1]
     last_carrier = new_rows["carrier"].iloc[-1]
     last_hop     = new_rows["next_hop_location"].iloc[-1]
@@ -201,8 +222,8 @@ def detect_stuck(key, pdfs, state):
 
     # Still in flight: persist the latest snapshot and arm a timer
     # `stuck_threshold` after the last seen event.
-    state.update((first_ts, last_ts, last_state, last_carrier, last_hop, alerted))
-    state.setTimeoutTimestamp(int(last_ts.timestamp() * 1000) + STUCK_MS)
+    state.update((first_ms, last_ms, last_state, last_carrier, last_hop, alerted))
+    state.setTimeoutTimestamp(last_ms + STUCK_MS)
 
     # Don't emit anything here — alerts come from the timer path.
     return iter([])
@@ -210,7 +231,7 @@ def detect_stuck(key, pdfs, state):
 # COMMAND ----------
 
 # DBTITLE 1,Wire the function into a streaming aggregation
-alerts = (
+alerts_raw = (
     silver_stream
         .select("tracking_id", "carrier", "state", "next_hop_location", "event_ts")
         .groupBy("tracking_id")
@@ -220,6 +241,19 @@ alerts = (
             stateStructType=state_schema,
             outputMode="Append",
             timeoutConf=GroupStateTimeout.EventTimeTimeout,
+        )
+)
+
+# Cast epoch-ms columns back to TimestampType for downstream friendliness.
+# The cast happens *outside* the Python UDF so Arrow never sees Timestamps
+# coming out of pandas — no precision drama.
+alerts = (
+    alerts_raw
+        .withColumn("stuck_since_ts", (col("stuck_since_epoch_ms") / 1000).cast("timestamp"))
+        .withColumn("alert_ts",       (col("alert_epoch_ms")       / 1000).cast("timestamp"))
+        .select(
+            "tracking_id", "carrier", "last_state",
+            "stuck_since_ts", "last_known_hop", "alert_ts",
         )
 )
 
