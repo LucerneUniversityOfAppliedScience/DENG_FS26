@@ -349,8 +349,7 @@ parsed = (
             # `{"mode": "PERMISSIVE"}`) currently raises INTERNAL_ERROR
             # on Databricks Serverless / Spark Connect. Default mode is
             # FAILFAST and is fine for valid Avro from Aiven's data
-            # generator. For error-tolerant parsing patterns, see
-            # `09_foreach_batch_dlq.py`.
+            # generator.
             from_avro(payload_bytes, logistics_avro_schema).alias("payload"),
         )
         .select(

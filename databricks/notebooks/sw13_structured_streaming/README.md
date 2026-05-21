@@ -2,12 +2,8 @@
 
 This module walks through a full streaming stack on Databricks Free
 Edition: ingest from a managed Kafka cluster on **Aiven**, build a
-Bronze → Silver → Gold medallion, archive raw data to Avro files, and
-add stateful Gold-layer aggregations and a Dead-Letter-Queue pattern.
-
-The companion folder [`../sw14_lakeflow_pipelines/`](../sw14_lakeflow_pipelines/)
-rebuilds the same pipeline declaratively with Lakeflow / DLT — start
-with sw13 first.
+Bronze → Silver → Gold medallion, and add windowed aggregations on
+the Gold layer (tumbling, session, sliding).
 
 ## What the notebooks do
 
@@ -21,11 +17,9 @@ with sw13 first.
 | 05 | [`05_silver_to_gold_tumbling.py`](./05_silver_to_gold_tumbling.py) | Event-time **tumbling window** aggregation per carrier per state |
 | 06 | [`06_silver_to_gold_sessions.py`](./06_silver_to_gold_sessions.py) | **Session windows** per `tracking_id` — the lifecycle of each shipment |
 | 07 | [`07_silver_to_gold_sliding.py`](./07_silver_to_gold_sliding.py) | **Sliding (hopping)** windows — same KPI, smoother curve |
-| 08 | [`08_stateful_stuck_alerts.py`](./08_stateful_stuck_alerts.py) | Custom stateful streaming with `applyInPandasWithState` — alert on stuck shipments (needs non-shared cluster) |
-| 09 | [`09_foreach_batch_dlq.py`](./09_foreach_batch_dlq.py) | `foreachBatch` + **Dead-Letter-Queue** pattern for parse failures |
 
 Suggested reading order: 00 → 01 → 03 → 04 → 05 → 06, then branch out
-to 02 (alternative producer) and 07/08/09 (advanced).
+to 02 (alternative producer) and 07 (sliding window).
 
 ## Prerequisites
 
@@ -144,8 +138,8 @@ state             Received
 5. **Run `05_silver_to_gold_tumbling.py`** and
    **`06_silver_to_gold_sessions.py`** — the Gold KPIs.
 
-The advanced notebooks (07 / 08 / 09) can be done in any order on top
-of an already-populated Silver layer.
+`07_silver_to_gold_sliding.py` is a variant of 05 with overlapping
+windows — try it once Silver is populated.
 
 ## Security note
 

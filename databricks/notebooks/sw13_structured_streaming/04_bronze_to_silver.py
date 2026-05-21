@@ -151,8 +151,8 @@ if payload_format in ("avro_confluent", "avro_plain"):
     # currently throws an INTERNAL_ERROR ("Cannot resolve the runtime
     # replaceable expression"). Default mode is FAILFAST — which is
     # fine for the Aiven data generator since it only emits valid
-    # Avro. If you need to tolerate corrupt records, see notebook 09
-    # (foreachBatch + DLQ).
+    # Avro. If you need to tolerate corrupt records, wrap the
+    # parsing in a Python UDF that catches exceptions per row.
     parsed = (
         bronze_stream
             .select(
